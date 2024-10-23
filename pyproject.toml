@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "pubsub-to-metrics"
+version = "0.1.0"
+description = ""
+authors = ["kesompochy <kesompochy@gmail.com>"]
+readme = "README.md"
+packages = [{include = "pubsub_to_metrics"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+apache-beam = {extras = ["gcp"], version = "^2.60.0"}
+google-cloud-monitoring = "^2.22.2"
+protobuf = ">=4.21.6"
+
+
+setuptools = "^75.2.0"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+pubsub-to-metrics = "pubsub_to_metrics.main:main"
