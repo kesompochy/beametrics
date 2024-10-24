@@ -1,5 +1,4 @@
 from pubsub_to_metrics.metrics_publisher import (
-    MetricsConfig,
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsPublisher,
@@ -12,10 +11,7 @@ def test_google_cloud_connection_config():
     Test GoogleCloudConnectionConfig initialization
     """
     config = GoogleCloudConnectionConfig(project_id="test-project")
-    assert (
-        config.get_connection()
-        == "https://monitoring.googleapis.com/v3/projects/test-project/timeSeries"
-    )
+    assert config.project_id == "test-project"
 
 
 def test_metrics_config_with_google_cloud_connection_config():

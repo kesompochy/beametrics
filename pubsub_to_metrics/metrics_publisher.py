@@ -9,17 +9,12 @@ import apache_beam as beam
 class ConnectionConfig(Protocol):
     """Protocol for connection configuration"""
 
-    def get_connection(self) -> str: ...
-
 
 @dataclass
 class GoogleCloudConnectionConfig:
     """Configuration for Google Cloud connection"""
 
     project_id: str
-
-    def get_connection(self) -> str:
-        return f"https://monitoring.googleapis.com/v3/projects/{self.project_id}/timeSeries"
 
     @property
     def project_name(self) -> str:
