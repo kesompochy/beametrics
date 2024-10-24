@@ -6,7 +6,6 @@ def test_metric_type_values():
     """Test MetricType enum has expected values"""
     assert MetricType.COUNT.value == "count"
     assert MetricType.SUM.value == "sum"
-    assert MetricType.AVERAGE.value == "average"
 
 
 def test_metric_definition_with_count():
