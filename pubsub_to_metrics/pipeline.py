@@ -19,7 +19,7 @@ class DecodeAndParse(beam.DoFn):
         return [parse_json(element)]
 
 
-class PublishMetrics(beam.DoFn):
+class PublishMetricsToCloudMonitoring(beam.DoFn):
     def __init__(self, metrics_config: GoogleCloudMetricsConfig):
         self.metrics_config = metrics_config
         self.publisher = None
@@ -32,7 +32,7 @@ class PublishMetrics(beam.DoFn):
         yield count
 
 
-class PubsubToMetricsPipeline(beam.PTransform):
+class PubsubToCloudMonitoringPipeline(beam.PTransform):
     def __init__(
         self,
         filter_condition: FilterCondition,
@@ -50,5 +50,6 @@ class PubsubToMetricsPipeline(beam.PTransform):
             | "FilterMessages" >> beam.Filter(self.filter.matches)
             | "CountMessages"
             >> beam.CombineGlobally(beam.combiners.CountCombineFn()).without_defaults()
-            | "PublishMetrics" >> beam.ParDo(PublishMetrics(self.metrics_config))
+            | "PublishMetrics"
+            >> beam.ParDo(PublishMetricsToCloudMonitoring(self.metrics_config))
         )

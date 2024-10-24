@@ -1,4 +1,4 @@
-from pubsub_to_metrics.pipeline import PubsubToMetricsPipeline, parse_json
+from pubsub_to_metrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
 from pubsub_to_metrics.filter import FilterCondition
 from pubsub_to_metrics.metrics_publisher import (
     GoogleCloudMetricsConfig,
@@ -43,8 +43,8 @@ def test_pubsub_to_metrics_pipeline():
         mock_pardo_result.__or__.return_value = mock_filter_result
 
         # Act
-        pipeline = PubsubToMetricsPipeline(filter_condition, metrics_config)
-        result = pipeline.expand(mock_pcoll)
+        pipeline = PubsubToCloudMonitoringPipeline(filter_condition, metrics_config)
+        pipeline.expand(mock_pcoll)
 
         # Assert
         assert mock_window.called
