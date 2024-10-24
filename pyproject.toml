@@ -2,9 +2,16 @@
 name = "beametrics"
 version = "0.1.0"
 description = "A streaming pipeline that transforms PubSub messages into metrics using Apache Beam"
-authors = ["kesompochy <kesompochy@gmail.com>"]
+authors = ["kesompochy"]
 readme = "README.md"
 packages = [{include = "beametrics"}]
+license = "MIT"
+keywords = ["apache beam", "streaming"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
