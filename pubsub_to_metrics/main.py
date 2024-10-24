@@ -10,21 +10,23 @@ import argparse
 from .pipeline_factory import GoogleCloudPipelineFactory, DataflowPipelineConfig
 from apache_beam import Pipeline
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 
-def parse_filter_conditions(conditions_json: str):
+def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
     """Parse filter conditions from JSON string"""
     conditions = json.loads(conditions_json)
     if not isinstance(conditions, list) or len(conditions) == 0:
         raise ValueError("Filter conditions must be a non-empty list")
 
-    condition = conditions[0]  # 現時点では最初の条件のみ使用
-    return FilterCondition(
-        field=condition["field"],
-        value=condition["value"],
-        operator=condition["operator"],
-    )
+    return [
+        FilterCondition(
+            field=condition["field"],
+            value=condition["value"],
+            operator=condition["operator"],
+        )
+        for condition in conditions
+    ]
 
 
 def create_metrics_config(
@@ -60,34 +62,35 @@ def create_metrics_config(
 def run(
     project_id: str,
     subscription: str,
-    metric_name: str,
     labels: str,
+    metric_name: str,
     filter_conditions: str,
-    metric_type: str = "count",
-    metric_field: str | None = None,
-    region: str | None = None,
-    temp_location: str | None = None,
-    runner: str = "DataflowRunner",
+    region: Optional[str] = None,
+    temp_location: Optional[str] = None,
+    runner: str = "DirectRunner",
     export_type: str = "monitoring",
-):
-    """Run the pipeline with the given configuration"""
+    metric_type: str = "count",
+    metric_field: Optional[str] = None,
+    window_size: int = 60,
+) -> None:
+    """Run the pipeline"""
     if runner not in ["DataflowRunner", "DirectRunner"]:
         raise ValueError(f"Unsupported runner type: {runner}")
 
     if export_type != "monitoring":
         raise ValueError(f"Unsupported export type: {export_type}")
 
+    if runner == "DataflowRunner":
+        if not region or not temp_location:
+            raise ValueError("region and temp_location are required for DataflowRunner")
+
     try:
         metric_type_enum = MetricType[metric_type.upper()]
     except KeyError:
         raise ValueError(f"Unsupported metric type: {metric_type}")
 
-    metric_definition = MetricDefinition(
-        name=metric_name,
-        type=metric_type_enum,
-        field=metric_field,
-        labels=json.loads(labels),
-    )
+    if metric_type_enum == MetricType.SUM and not metric_field:
+        raise ValueError("field is required for sum metric type")
 
     pipeline_options = [
         f"--runner={runner}",
@@ -106,12 +109,19 @@ def run(
             ]
         )
 
-    filter_condition = parse_filter_conditions(filter_conditions)
+    parsed_filter_conditions = parse_filter_conditions(filter_conditions)
     metrics_config = create_metrics_config(
         metric_name=metric_name,
         labels=json.loads(labels),
         project_id=project_id,
         export_type=export_type,
+    )
+
+    metric_definition = MetricDefinition(
+        name=metric_name,
+        type=metric_type_enum,
+        field=metric_field,
+        labels=json.loads(labels),
     )
 
     with Pipeline(options=PipelineOptions(pipeline_options)) as p:
@@ -120,9 +130,10 @@ def run(
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
             >> PubsubToCloudMonitoringPipeline(
-                filter_condition,
-                metrics_config,
-                metric_definition,
+                filter_conditions=parsed_filter_conditions,
+                metrics_config=metrics_config,
+                metric_definition=metric_definition,
+                window_size=window_size,
             )
         )
 
@@ -145,6 +156,11 @@ def main():
         help="Type of metric to generate",
     )
     parser.add_argument("--metric-field", help="Field to use for sum/average metrics")
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=60,
+    )
 
     args = parser.parse_args()
     run(
@@ -159,6 +175,7 @@ def main():
         export_type=args.export_type,
         metric_type=args.metric_type,
         metric_field=args.metric_field,
+        window_size=args.window_size,
     )
 
 

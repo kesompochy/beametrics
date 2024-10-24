@@ -1,6 +1,6 @@
 import apache_beam as beam
 from apache_beam.transforms.window import FixedWindows
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .filter import FilterCondition, MessageFilter
 from .metrics import MetricType, MetricDefinition
 from .metrics_exporter import (
@@ -55,14 +55,34 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
 
     def __init__(
         self,
-        filter_condition: FilterCondition,
+        filter_conditions: List[FilterCondition],
         metrics_config: GoogleCloudMetricsConfig,
         metric_definition: MetricDefinition,
+        window_size: int = 60,
     ):
+        """Initialize the pipeline transform
+
+        Args:
+            filter_conditions: List of conditions for filtering messages
+            metrics_config: Configuration for metrics export
+            metric_definition: Definition of the metric to generate
+            window_size: Size of the fixed window in seconds (minimum 60)
+
+        Raises:
+            ValueError: If window_size is less than 60 seconds
+        """
+        if window_size < 60:
+            raise ValueError("window_size must be at least 60 seconds")
+
         super().__init__()
-        self.filter = MessageFilter(filter_condition)
+        self.filter = MessageFilter(filter_conditions)
         self.metrics_config = metrics_config
         self.metric_definition = metric_definition
+        self.window_size = window_size
+
+    def _get_window_transform(self):
+        """Get the window transform with configured size"""
+        return beam.WindowInto(FixedWindows(self.window_size))
 
     def _get_combiner(self):
         """Get appropriate combiner based on metric type"""
@@ -76,16 +96,14 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
     def expand(self, pcoll):
         filtered = (
             pcoll
-            | "Window" >> beam.WindowInto(FixedWindows(60))
+            | "Window" >> self._get_window_transform()
             | "DecodeAndParse" >> beam.ParDo(DecodeAndParse())
             | "FilterMessages" >> beam.Filter(self.filter.matches)
         )
 
         if self.metric_definition.type == MetricType.COUNT:
-            # Count型の場合は直接カウント
             values = filtered
         else:
-            # その他の型の場合はフィールドを抽出して集計
             values = (
                 filtered
                 | f"ExtractField_{self.metric_definition.field}"

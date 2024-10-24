@@ -16,8 +16,12 @@ def test_parse_filter_conditions():
     Test parsing a valid filter condition from JSON string
     """
     json_str = '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
-    condition = parse_filter_conditions(json_str)
+    conditions = parse_filter_conditions(json_str)
 
+    assert isinstance(conditions, list)
+    assert len(conditions) == 1
+
+    condition = conditions[0]
     assert isinstance(condition, FilterCondition)
     assert condition.field == "severity"
     assert condition.value == "ERROR"
@@ -180,7 +184,6 @@ def test_run_with_sum_metric(mock_pipeline):
     assert all_options["streaming"] is True
 
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
-    # TODO: メトリクス設定の詳細な検証を追加
 
 
 @patch("pubsub_to_metrics.main.Pipeline")

@@ -9,6 +9,9 @@ from pubsub_to_metrics.metrics import MetricType, MetricDefinition
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 import apache_beam as beam
+import pytest
+from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.transforms.window import FixedWindows
 
 
 class TestMetricsExporter(beam.DoFn):
@@ -118,3 +121,63 @@ def test_sum_metric_aggregation(mock_export):
         )
 
         assert_that(result, equal_to([250]))
+
+
+class MockFilterCondition(FilterCondition):
+    def __init__(self):
+        super().__init__(field="severity", value="ERROR", operator="equals")
+
+
+class MockMetricsConfig(GoogleCloudMetricsConfig):
+    def __init__(self):
+        super().__init__(
+            metric_name="test-metric",
+            labels={"service": "test"},
+            connection_config=MockConnectionConfig(),
+        )
+
+
+class MockConnectionConfig:
+    def __init__(self):
+        self.project_name = "projects/test-project"
+
+
+class MockMetricDefinition(MetricDefinition):
+    def __init__(self):
+        super().__init__(
+            name="test-metric",
+            type=MetricType.COUNT,
+            field=None,
+            labels={"service": "test"},
+        )
+
+
+def test_fixed_window_size_validation():
+    """Test fixed window size validation"""
+    pipeline = PubsubToCloudMonitoringPipeline(
+        filter_conditions=[MockFilterCondition()],
+        metrics_config=MockMetricsConfig(),
+        metric_definition=MockMetricDefinition(),
+        window_size=60,
+    )
+    transform = pipeline._get_window_transform()
+    assert isinstance(transform.windowing.windowfn, FixedWindows)
+    assert transform.windowing.windowfn.size == 60
+
+    pipeline = PubsubToCloudMonitoringPipeline(
+        filter_conditions=[MockFilterCondition()],
+        metrics_config=MockMetricsConfig(),
+        metric_definition=MockMetricDefinition(),
+        window_size=120,
+    )
+    transform = pipeline._get_window_transform()
+    assert transform.windowing.windowfn.size == 120
+
+    with pytest.raises(ValueError) as exc_info:
+        PubsubToCloudMonitoringPipeline(
+            filter_conditions=[MockFilterCondition()],
+            metrics_config=MockMetricsConfig(),
+            metric_definition=MockMetricDefinition(),
+            window_size=59,
+        )
+    assert "window_size must be at least 60 seconds" in str(exc_info.value)
