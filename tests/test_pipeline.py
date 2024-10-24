@@ -1,11 +1,11 @@
-from pubsub_to_metrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
-from pubsub_to_metrics.filter import FilterCondition
-from pubsub_to_metrics.metrics_exporter import (
+from beametrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
+from beametrics.filter import FilterCondition
+from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudConnectionConfig,
 )
 from unittest.mock import MagicMock, patch
-from pubsub_to_metrics.metrics import MetricType, MetricDefinition
+from beametrics.metrics import MetricType, MetricDefinition
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 import apache_beam as beam
@@ -34,7 +34,7 @@ def test_parse_json():
     assert result["message"] == "test error"
 
 
-def test_pubsub_to_metrics_pipeline_structure():
+def test_beametrics_pipeline_structure():
     """Test PubsubToMetricsPipeline basic structure"""
     filter_condition = FilterCondition(
         field="severity", value="ERROR", operator="equals"
@@ -80,7 +80,7 @@ def test_pubsub_to_metrics_pipeline_structure():
         assert mock_filter.called
 
 
-@patch("pubsub_to_metrics.pipeline.ExportMetricsToCloudMonitoring")
+@patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
 def test_count_metric_aggregation(mock_export):
     """Test COUNT metric aggregation"""
     with TestPipeline() as p:
@@ -101,7 +101,7 @@ def test_count_metric_aggregation(mock_export):
         assert_that(result, equal_to([2]))
 
 
-@patch("pubsub_to_metrics.pipeline.ExportMetricsToCloudMonitoring")
+@patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
 def test_sum_metric_aggregation(mock_export):
     """Test SUM metric aggregation"""
     with TestPipeline() as p:

@@ -1,5 +1,5 @@
 import pytest
-from pubsub_to_metrics.metrics import MetricType, MetricDefinition
+from beametrics.metrics import MetricType, MetricDefinition
 
 
 def test_metric_type_values():

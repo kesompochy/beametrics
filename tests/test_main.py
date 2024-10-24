@@ -1,13 +1,13 @@
-from pubsub_to_metrics.main import parse_filter_conditions, run, create_metrics_config
+from beametrics.main import parse_filter_conditions, run, create_metrics_config
 from unittest.mock import patch, MagicMock, call
-from pubsub_to_metrics.filter import FilterCondition
+from beametrics.filter import FilterCondition
 from apache_beam.io.gcp.pubsub import ReadFromPubSub
-from pubsub_to_metrics.pipeline import PubsubToCloudMonitoringPipeline
-from pubsub_to_metrics.metrics_exporter import (
+from beametrics.pipeline import PubsubToCloudMonitoringPipeline
+from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudConnectionConfig,
 )
-from pubsub_to_metrics.pipeline_factory import DataflowPipelineConfig
+from beametrics.pipeline_factory import DataflowPipelineConfig
 import pytest
 
 
@@ -28,7 +28,7 @@ def test_parse_filter_conditions():
     assert condition.operator == "equals"
 
 
-@patch("pubsub_to_metrics.main.Pipeline")
+@patch("beametrics.main.Pipeline")
 @patch("google.cloud.monitoring_v3.MetricServiceClient")
 def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
     """
@@ -55,7 +55,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 
 
-@patch("pubsub_to_metrics.main.Pipeline")
+@patch("beametrics.main.Pipeline")
 def test_run_with_direct_and_monitoring(mock_pipeline):
     """Test pipeline with DirectRunner and Cloud Monitoring export"""
     mock_pipeline_instance = MagicMock()
@@ -86,7 +86,7 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 
 
-@patch("pubsub_to_metrics.pipeline_factory.Pipeline")
+@patch("beametrics.pipeline_factory.Pipeline")
 def test_run_with_unsupported_runner(mock_pipeline):
     """
     Test pipeline with unsupported runner
@@ -107,7 +107,7 @@ def test_run_with_unsupported_runner(mock_pipeline):
     assert "Unsupported runner type: UnsupportedRunner" in str(exc_info.value)
 
 
-@patch("pubsub_to_metrics.pipeline_factory.Pipeline")
+@patch("beametrics.pipeline_factory.Pipeline")
 def test_run_with_unsupported_export_type(mock_pipeline):
     """
     Test pipeline with unsupported export type
@@ -157,7 +157,7 @@ def test_create_metrics_config_with_unsupported_type():
     assert "Unsupported export type: unsupported" in str(exc_info.value)
 
 
-@patch("pubsub_to_metrics.main.Pipeline")
+@patch("beametrics.main.Pipeline")
 def test_run_with_sum_metric(mock_pipeline):
     """Test pipeline with SUM metric type"""
     mock_pipeline_instance = MagicMock()
@@ -186,7 +186,7 @@ def test_run_with_sum_metric(mock_pipeline):
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 
 
-@patch("pubsub_to_metrics.main.Pipeline")
+@patch("beametrics.main.Pipeline")
 def test_run_with_invalid_metric_type(mock_pipeline):
     """Test pipeline with invalid metric type"""
     with pytest.raises(ValueError) as exc_info:
@@ -203,7 +203,7 @@ def test_run_with_invalid_metric_type(mock_pipeline):
     assert "Unsupported metric type: invalid_type" in str(exc_info.value)
 
 
-@patch("pubsub_to_metrics.main.Pipeline")
+@patch("beametrics.main.Pipeline")
 def test_run_without_required_field(mock_pipeline):
     """Test pipeline without required field for SUM metric"""
     with pytest.raises(ValueError) as exc_info:

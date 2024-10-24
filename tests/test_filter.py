@@ -1,4 +1,4 @@
-from pubsub_to_metrics.filter import FilterCondition, MessageFilter
+from beametrics.filter import FilterCondition, MessageFilter
 
 
 def test_filter_condition_equals():

@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "pubsub-to-metrics"
+name = "beametrics"
 version = "0.1.0"
-description = ""
+description = "A streaming pipeline that transforms PubSub messages into metrics using Apache Beam"
 authors = ["kesompochy <kesompochy@gmail.com>"]
 readme = "README.md"
-packages = [{include = "pubsub_to_metrics"}]
+packages = [{include = "beametrics"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -23,4 +23,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-pubsub-to-metrics = "pubsub_to_metrics.main:main"
+beametrics = "beametrics.main:main"

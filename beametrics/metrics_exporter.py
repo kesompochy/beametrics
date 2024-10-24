@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Protocol
+from typing import Protocol, Optional, Dict
 from google.cloud import monitoring_v3
 import time
 import apache_beam as beam
@@ -9,9 +9,11 @@ import apache_beam as beam
 class ConnectionConfig(Protocol):
     """Protocol for connection configuration"""
 
+    pass
+
 
 @dataclass
-class GoogleCloudConnectionConfig:
+class GoogleCloudConnectionConfig(ConnectionConfig):
     """Configuration for Google Cloud connection"""
 
     project_id: str
@@ -46,39 +48,44 @@ class MetricsExporter(ABC):
         self.config = config
 
     @abstractmethod
-    def export(self, value: float) -> None:
-        """Exports a metric value"""
+    def export(
+        self, value: float, dynamic_labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Exports a metric value with optional dynamic labels"""
         pass
 
 
 class GoogleCloudMetricsExporter(MetricsExporter):
-    """Exporter for Google Cloud metrics"""
+    """Export metrics to Google Cloud Monitoring"""
 
     def __init__(self, config: GoogleCloudMetricsConfig):
-        super().__init__(config)
-        self.client = monitoring_v3.MetricServiceClient()
         self.config: GoogleCloudMetricsConfig = config
+        self.client = monitoring_v3.MetricServiceClient()
 
-    def export(self, value: float):
+    def export(
+        self, value: float, dynamic_labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Exports a metric value with optional dynamic labels"""
         now = time.time()
         seconds = int(now)
         aligned_seconds = seconds - (seconds % 60)
 
         series = monitoring_v3.TimeSeries()
         series.metric.type = self.config.metric_name
-        series.metric.labels.update(self.config.labels)
+
+        final_labels = dict(self.config.labels)
+        if dynamic_labels:
+            final_labels.update(dynamic_labels)
+
+        series.metric.labels.update(final_labels)
         series.resource.type = "global"
 
         point = monitoring_v3.Point()
         point.value.double_value = value
-
         interval = monitoring_v3.TimeInterval(
             {
                 "end_time": {"seconds": aligned_seconds, "nanos": 0},
-                "start_time": {
-                    "seconds": aligned_seconds,
-                    "nanos": 0,
-                },
+                "start_time": {"seconds": aligned_seconds, "nanos": 0},
             }
         )
         point.interval = interval

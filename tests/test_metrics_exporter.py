@@ -1,4 +1,4 @@
-from pubsub_to_metrics.metrics_exporter import (
+from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,

@@ -1,7 +1,7 @@
 import pytest
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam import Pipeline
-from pubsub_to_metrics.pipeline_factory import (
+from beametrics.pipeline_factory import (
     GoogleCloudPipelineFactory,
     DataflowPipelineConfig,
 )
