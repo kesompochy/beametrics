@@ -1,7 +1,7 @@
-from pubsub_to_metrics.metrics_publisher import (
+from pubsub_to_metrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
-    GoogleCloudMetricsPublisher,
+    GoogleCloudMetricsExporter,
 )
 from unittest.mock import patch
 
@@ -29,9 +29,9 @@ def test_metrics_config_with_google_cloud_connection_config():
     assert config.connection_config.project_id == "test-project"
 
 
-def test_google_cloud_metrics_publisher():
+def test_google_cloud_metrics_exporter():
     """
-    Test GoogleCloudMetricsPublisher
+    Test GoogleCloudMetricsExporter
     """
     config = GoogleCloudMetricsConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
@@ -39,15 +39,15 @@ def test_google_cloud_metrics_publisher():
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
     with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
-        publisher = GoogleCloudMetricsPublisher(config)
-        publisher.publish(1)
+        exporter = GoogleCloudMetricsExporter(config)
+        exporter.export(1)
 
         mock_client.return_value.create_time_series.assert_called_once()
 
 
-def test_google_cloud_metrics_publisher_parameters():
+def test_google_cloud_metrics_exporter_parameters():
     """
-    Test GoogleCloudMetricsPublisher passes correct parameters
+    Test GoogleCloudMetricsExporter passes correct parameters
     """
     config = GoogleCloudMetricsConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
@@ -55,8 +55,8 @@ def test_google_cloud_metrics_publisher_parameters():
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
     with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
-        publisher = GoogleCloudMetricsPublisher(config)
-        publisher.publish(1.0)
+        exporter = GoogleCloudMetricsExporter(config)
+        exporter.export(1.0)
 
         mock_client.return_value.create_time_series.assert_called_once()
         call_args = mock_client.return_value.create_time_series.call_args[1]

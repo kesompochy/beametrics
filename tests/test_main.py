@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock, call
 from pubsub_to_metrics.filter import FilterCondition
 from apache_beam.io.gcp.pubsub import ReadFromPubSub
 from pubsub_to_metrics.pipeline import PubsubToCloudMonitoringPipeline
-from pubsub_to_metrics.metrics_publisher import (
+from pubsub_to_metrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudConnectionConfig,
 )
@@ -53,9 +53,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
 
 @patch("pubsub_to_metrics.main.Pipeline")
 def test_run_with_direct_and_monitoring(mock_pipeline):
-    """
-    Test pipeline with DirectRunner and Cloud Monitoring export
-    """
+    """Test pipeline with DirectRunner and Cloud Monitoring export"""
     mock_pipeline_instance = MagicMock()
     mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
 
@@ -71,7 +69,15 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
 
     mock_pipeline.assert_called_once()
     pipeline_options = mock_pipeline.call_args[1]["options"]
-    assert pipeline_options.get_all_options().get("runner") == "DirectRunner"
+    all_options = pipeline_options.get_all_options()
+
+    assert all_options["runner"] == "DirectRunner"
+    assert all_options["project"] == "test-project"
+    assert all_options["streaming"] is True
+
+    assert all_options.get("region") is None
+    assert all_options.get("temp_location") is None
+    assert all_options.get("setup_file") is None
 
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 

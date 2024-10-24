@@ -1,6 +1,6 @@
 from pubsub_to_metrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
 from pubsub_to_metrics.filter import FilterCondition
-from pubsub_to_metrics.metrics_publisher import (
+from pubsub_to_metrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudConnectionConfig,
 )

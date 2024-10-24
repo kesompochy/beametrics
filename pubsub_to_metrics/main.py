@@ -3,7 +3,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.io.gcp.pubsub import ReadFromPubSub
 from .pipeline import PubsubToCloudMonitoringPipeline
 from .filter import FilterCondition
-from .metrics_publisher import GoogleCloudMetricsConfig, GoogleCloudConnectionConfig
+from .metrics_exporter import GoogleCloudMetricsConfig, GoogleCloudConnectionConfig
 import json
 import argparse
 from .pipeline_factory import GoogleCloudPipelineFactory, DataflowPipelineConfig
@@ -71,16 +71,17 @@ def run(
     if export_type != "monitoring":
         raise ValueError(f"Unsupported export type: {export_type}")
 
-    pipeline_options = []
-    pipeline_options.append(f"--runner={runner}")
-    pipeline_options.append("--streaming")
+    pipeline_options = [
+        f"--runner={runner}",
+        f"--project={project_id}",
+        "--streaming",
+    ]
 
     if runner == "DataflowRunner":
         if not region or not temp_location:
             raise ValueError("region and temp_location are required for DataflowRunner")
         pipeline_options.extend(
             [
-                f"--project={project_id}",
                 f"--region={region}",
                 f"--temp_location={temp_location}",
                 "--setup_file=./setup.py",

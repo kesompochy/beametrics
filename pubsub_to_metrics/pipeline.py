@@ -2,9 +2,9 @@ import apache_beam as beam
 from apache_beam.transforms.window import FixedWindows
 from typing import Dict, Any
 from .filter import FilterCondition, MessageFilter
-from .metrics_publisher import (
+from .metrics_exporter import (
     GoogleCloudMetricsConfig,
-    GoogleCloudMetricsPublisher,
+    GoogleCloudMetricsExporter,
 )
 
 
@@ -19,16 +19,16 @@ class DecodeAndParse(beam.DoFn):
         return [parse_json(element)]
 
 
-class PublishMetricsToCloudMonitoring(beam.DoFn):
+class ExportMetricsToCloudMonitoring(beam.DoFn):
     def __init__(self, metrics_config: GoogleCloudMetricsConfig):
         self.metrics_config = metrics_config
-        self.publisher = None
+        self.exporter = None
 
     def setup(self):
-        self.publisher = GoogleCloudMetricsPublisher(self.metrics_config)
+        self.exporter = GoogleCloudMetricsExporter(self.metrics_config)
 
     def process(self, count):
-        self.publisher.publish(float(count))
+        self.exporter.export(float(count))
         yield count
 
 
@@ -50,6 +50,6 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
             | "FilterMessages" >> beam.Filter(self.filter.matches)
             | "CountMessages"
             >> beam.CombineGlobally(beam.combiners.CountCombineFn()).without_defaults()
-            | "PublishMetrics"
-            >> beam.ParDo(PublishMetricsToCloudMonitoring(self.metrics_config))
+            | "ExportMetrics"
+            >> beam.ParDo(ExportMetricsToCloudMonitoring(self.metrics_config))
         )

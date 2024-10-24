@@ -23,7 +23,7 @@ class GoogleCloudConnectionConfig:
 
 @dataclass
 class MetricsConfig(Protocol):
-    """Configuration for metrics publishing"""
+    """Configuration for metrics exporting"""
 
     metric_name: str
     labels: dict[str, str]
@@ -32,34 +32,34 @@ class MetricsConfig(Protocol):
 
 @dataclass
 class GoogleCloudMetricsConfig(MetricsConfig):
-    """Configuration for Google Cloud metrics publishing"""
+    """Configuration for Google Cloud metrics exporting"""
 
     metric_name: str
     labels: dict[str, str]
     connection_config: GoogleCloudConnectionConfig
 
 
-class MetricsPublisher(ABC):
-    """Base class for publishing metrics"""
+class MetricsExporter(ABC):
+    """Base class for exporting metrics"""
 
     def __init__(self, config: MetricsConfig):
         self.config = config
 
     @abstractmethod
-    def publish(self, value: float) -> None:
-        """Publishes a metric value"""
+    def export(self, value: float) -> None:
+        """Exports a metric value"""
         pass
 
 
-class GoogleCloudMetricsPublisher(MetricsPublisher):
-    """Publisher for Google Cloud metrics"""
+class GoogleCloudMetricsExporter(MetricsExporter):
+    """Exporter for Google Cloud metrics"""
 
     def __init__(self, config: GoogleCloudMetricsConfig):
         super().__init__(config)
         self.client = monitoring_v3.MetricServiceClient()
         self.config: GoogleCloudMetricsConfig = config
 
-    def publish(self, value: float):
+    def export(self, value: float):
         now = time.time()
         seconds = int(now)
         aligned_seconds = seconds - (seconds % 60)
@@ -92,14 +92,14 @@ class GoogleCloudMetricsPublisher(MetricsPublisher):
         self.client.create_time_series(request=request)
 
 
-class PublishMetrics(beam.DoFn):
+class ExportMetricsToCloudMonitoring(beam.DoFn):
     def __init__(self, metrics_config: GoogleCloudMetricsConfig):
         self.metrics_config = metrics_config
-        self.publisher = None
+        self.exporter = None
 
     def setup(self):
-        self.publisher = GoogleCloudMetricsPublisher(self.metrics_config)
+        self.exporter = GoogleCloudMetricsExporter(self.metrics_config)
 
     def process(self, count):
-        self.publisher.publish(float(count))
+        self.exporter.export(float(count))
         yield count
