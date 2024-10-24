@@ -5,6 +5,22 @@ from pubsub_to_metrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
 )
 from unittest.mock import MagicMock, patch
+from pubsub_to_metrics.metrics import MetricType, MetricDefinition
+from apache_beam.testing.test_pipeline import TestPipeline
+from apache_beam.testing.util import assert_that, equal_to
+import apache_beam as beam
+
+
+class TestMetricsExporter(beam.DoFn):
+    """Test metrics exporter that stores values for verification"""
+
+    def __init__(self):
+        super().__init__()
+        self.exported_values = []
+
+    def process(self, value):
+        self.exported_values.append(value)
+        yield value
 
 
 def test_parse_json():
@@ -15,8 +31,8 @@ def test_parse_json():
     assert result["message"] == "test error"
 
 
-def test_pubsub_to_metrics_pipeline():
-    """Test PubsubToMetricsPipeline transformation"""
+def test_pubsub_to_metrics_pipeline_structure():
+    """Test PubsubToMetricsPipeline basic structure"""
     filter_condition = FilterCondition(
         field="severity", value="ERROR", operator="equals"
     )
@@ -25,6 +41,13 @@ def test_pubsub_to_metrics_pipeline():
         metric_name="custom.googleapis.com/pubsub/error_count",
         labels={"service": "test"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+
+    metric_definition = MetricDefinition(
+        name="error_count",
+        type=MetricType.COUNT,
+        field=None,
+        labels={"service": "test"},
     )
 
     # Mock the beam transforms
@@ -43,10 +66,55 @@ def test_pubsub_to_metrics_pipeline():
         mock_pardo_result.__or__.return_value = mock_filter_result
 
         # Act
-        pipeline = PubsubToCloudMonitoringPipeline(filter_condition, metrics_config)
+        pipeline = PubsubToCloudMonitoringPipeline(
+            filter_condition, metrics_config, metric_definition
+        )
         pipeline.expand(mock_pcoll)
 
         # Assert
         assert mock_window.called
         assert mock_pardo.called
         assert mock_filter.called
+
+
+@patch("pubsub_to_metrics.pipeline.ExportMetricsToCloudMonitoring")
+def test_count_metric_aggregation(mock_export):
+    """Test COUNT metric aggregation"""
+    with TestPipeline() as p:
+        input_data = [
+            b'{"severity": "ERROR", "message": "test1"}',
+            b'{"severity": "ERROR", "message": "test2"}',
+            b'{"severity": "INFO", "message": "test3"}',
+        ]
+
+        result = (
+            p
+            | beam.Create(input_data)
+            | beam.Map(parse_json)
+            | beam.Filter(lambda x: x["severity"] == "ERROR")
+            | beam.CombineGlobally(beam.combiners.CountCombineFn()).without_defaults()
+        )
+
+        assert_that(result, equal_to([2]))
+
+
+@patch("pubsub_to_metrics.pipeline.ExportMetricsToCloudMonitoring")
+def test_sum_metric_aggregation(mock_export):
+    """Test SUM metric aggregation"""
+    with TestPipeline() as p:
+        input_data = [
+            b'{"severity": "ERROR", "bytes": 100}',
+            b'{"severity": "ERROR", "bytes": 150}',
+            b'{"severity": "INFO", "bytes": 200}',
+        ]
+
+        result = (
+            p
+            | beam.Create(input_data)
+            | beam.Map(parse_json)
+            | beam.Filter(lambda x: x["severity"] == "ERROR")
+            | beam.Map(lambda x: x["bytes"])
+            | beam.CombineGlobally(sum).without_defaults()
+        )
+
+        assert_that(result, equal_to([250]))

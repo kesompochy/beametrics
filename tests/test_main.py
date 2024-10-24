@@ -151,3 +151,67 @@ def test_create_metrics_config_with_unsupported_type():
         )
 
     assert "Unsupported export type: unsupported" in str(exc_info.value)
+
+
+@patch("pubsub_to_metrics.main.Pipeline")
+def test_run_with_sum_metric(mock_pipeline):
+    """Test pipeline with SUM metric type"""
+    mock_pipeline_instance = MagicMock()
+    mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
+
+    run(
+        project_id="test-project",
+        subscription="projects/test-project/subscriptions/test-subscription",
+        labels='{"service": "test-service"}',
+        metric_name="test-metric",
+        metric_type="sum",
+        metric_field="response_time",  # Required for SUM metric
+        filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+        runner="DirectRunner",
+        export_type="monitoring",
+    )
+
+    mock_pipeline.assert_called_once()
+    pipeline_options = mock_pipeline.call_args[1]["options"]
+    all_options = pipeline_options.get_all_options()
+
+    assert all_options["runner"] == "DirectRunner"
+    assert all_options["project"] == "test-project"
+    assert all_options["streaming"] is True
+
+    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    # TODO: メトリクス設定の詳細な検証を追加
+
+
+@patch("pubsub_to_metrics.main.Pipeline")
+def test_run_with_invalid_metric_type(mock_pipeline):
+    """Test pipeline with invalid metric type"""
+    with pytest.raises(ValueError) as exc_info:
+        run(
+            project_id="test-project",
+            subscription="projects/test-project/subscriptions/test-subscription",
+            labels='{"service": "test-service"}',
+            metric_name="test-metric",
+            metric_type="invalid_type",  # Invalid metric type
+            filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            runner="DirectRunner",
+            export_type="monitoring",
+        )
+    assert "Unsupported metric type: invalid_type" in str(exc_info.value)
+
+
+@patch("pubsub_to_metrics.main.Pipeline")
+def test_run_without_required_field(mock_pipeline):
+    """Test pipeline without required field for SUM metric"""
+    with pytest.raises(ValueError) as exc_info:
+        run(
+            project_id="test-project",
+            subscription="projects/test-project/subscriptions/test-subscription",
+            labels='{"service": "test-service"}',
+            metric_name="test-metric",
+            metric_type="sum",  # SUM requires field
+            filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            runner="DirectRunner",
+            export_type="monitoring",
+        )
+    assert "field is required for sum metric type" in str(exc_info.value)

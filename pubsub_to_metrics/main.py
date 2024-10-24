@@ -3,11 +3,14 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.io.gcp.pubsub import ReadFromPubSub
 from .pipeline import PubsubToCloudMonitoringPipeline
 from .filter import FilterCondition
+from .metrics import MetricType, MetricDefinition
 from .metrics_exporter import GoogleCloudMetricsConfig, GoogleCloudConnectionConfig
 import json
 import argparse
 from .pipeline_factory import GoogleCloudPipelineFactory, DataflowPipelineConfig
 from apache_beam import Pipeline
+from enum import Enum
+from typing import Dict, Optional
 
 
 def parse_filter_conditions(conditions_json: str):
@@ -60,16 +63,31 @@ def run(
     metric_name: str,
     labels: str,
     filter_conditions: str,
+    metric_type: str = "count",
+    metric_field: str | None = None,
     region: str | None = None,
     temp_location: str | None = None,
     runner: str = "DataflowRunner",
     export_type: str = "monitoring",
 ):
+    """Run the pipeline with the given configuration"""
     if runner not in ["DataflowRunner", "DirectRunner"]:
         raise ValueError(f"Unsupported runner type: {runner}")
 
     if export_type != "monitoring":
         raise ValueError(f"Unsupported export type: {export_type}")
+
+    try:
+        metric_type_enum = MetricType[metric_type.upper()]
+    except KeyError:
+        raise ValueError(f"Unsupported metric type: {metric_type}")
+
+    metric_definition = MetricDefinition(
+        name=metric_name,
+        type=metric_type_enum,
+        field=metric_field,
+        labels=json.loads(labels),
+    )
 
     pipeline_options = [
         f"--runner={runner}",
@@ -89,11 +107,9 @@ def run(
         )
 
     filter_condition = parse_filter_conditions(filter_conditions)
-    metric_labels = json.loads(labels)
-
     metrics_config = create_metrics_config(
         metric_name=metric_name,
-        labels=metric_labels,
+        labels=json.loads(labels),
         project_id=project_id,
         export_type=export_type,
     )
@@ -103,7 +119,11 @@ def run(
             p
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
-            >> PubsubToCloudMonitoringPipeline(filter_condition, metrics_config)
+            >> PubsubToCloudMonitoringPipeline(
+                filter_condition,
+                metrics_config,
+                metric_definition,
+            )
         )
 
 
@@ -118,6 +138,13 @@ def main():
     parser.add_argument("--temp-location")
     parser.add_argument("--runner", default="DataflowRunner")
     parser.add_argument("--export-type", default="monitoring")
+    parser.add_argument(
+        "--metric-type",
+        default="count",
+        choices=["count", "sum"],
+        help="Type of metric to generate",
+    )
+    parser.add_argument("--metric-field", help="Field to use for sum/average metrics")
 
     args = parser.parse_args()
     run(
@@ -130,6 +157,8 @@ def main():
         temp_location=args.temp_location,
         runner=args.runner,
         export_type=args.export_type,
+        metric_type=args.metric_type,
+        metric_field=args.metric_field,
     )
 
 
