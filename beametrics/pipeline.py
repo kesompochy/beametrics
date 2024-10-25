@@ -1,9 +1,9 @@
 import apache_beam as beam
 from apache_beam.transforms.window import FixedWindows
 from typing import Dict, Any, List
-from .filter import FilterCondition, MessageFilter
-from .metrics import MetricType, MetricDefinition
-from .metrics_exporter import (
+from beametrics.filter import FilterCondition, MessageFilter
+from beametrics.metrics import MetricType, MetricDefinition
+from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
 )

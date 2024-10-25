@@ -1,13 +1,19 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.io.gcp.pubsub import ReadFromPubSub
-from .pipeline import PubsubToCloudMonitoringPipeline
-from .filter import FilterCondition
-from .metrics import MetricType, MetricDefinition
-from .metrics_exporter import GoogleCloudMetricsConfig, GoogleCloudConnectionConfig
+from beametrics.pipeline import PubsubToCloudMonitoringPipeline
+from beametrics.filter import FilterCondition
+from beametrics.metrics import MetricType, MetricDefinition
+from beametrics.metrics_exporter import (
+    GoogleCloudMetricsConfig,
+    GoogleCloudConnectionConfig,
+)
 import json
 import argparse
-from .pipeline_factory import GoogleCloudPipelineFactory, DataflowPipelineConfig
+from beametrics.pipeline_factory import (
+    GoogleCloudPipelineFactory,
+    DataflowPipelineConfig,
+)
 from apache_beam import Pipeline
 from enum import Enum
 from typing import Dict, Optional, List
