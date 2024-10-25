@@ -114,10 +114,14 @@ def run(
             f"--temp_location={temp_location}",
         ]
 
+        print(f"dataflow_template_type: {dataflow_template_type}")
         if dataflow_template_type != "flex":
+            print("setup_file is added because template type is not flex")
             options.append("--setup_file=./setup.py")
 
         pipeline_options.extend(options)
+
+    print(f"pipeline_options after extend: {pipeline_options}")
 
     parsed_filter_conditions = parse_filter_conditions(filter_conditions)
     metrics_config = create_metrics_config(
