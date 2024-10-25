@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "beametrics"
-version = "0.1.0"
+version = "0.1.1"
 description = "A streaming pipeline that transforms PubSub messages into metrics using Apache Beam"
 authors = ["kesompochy"]
 readme = "README.md"
