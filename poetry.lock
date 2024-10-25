@@ -805,53 +805,62 @@ libcst = ["libcst (>=0.2.5)"]
 
 [[package]]
 name = "google-cloud-dlp"
-version = "3.23.0"
+version = "3.25.0"
 description = "Google Cloud Dlp API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_dlp-3.23.0-py2.py3-none-any.whl", hash = "sha256:7a2066e9b3912cd1ef87d8e2101813ad19e69011c56c0df0e8f1a0487c6cf8fe"},
-    {file = "google_cloud_dlp-3.23.0.tar.gz", hash = "sha256:34a1f6e29da37e385bb3bde31c1fe55839393f55229ff329e5300d4777eabb38"},
+    {file = "google_cloud_dlp-3.25.0-py2.py3-none-any.whl", hash = "sha256:3f8de4afb9b7c802da0d5efdd8b8a29cdb630ea92eb11544ebade20d0586d753"},
+    {file = "google_cloud_dlp-3.25.0.tar.gz", hash = "sha256:4296701976e8a9b3b8ad3e6e208114696efc53256047f06cf6d4eae91dfd3d46"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [[package]]
 name = "google-cloud-language"
-version = "2.14.0"
+version = "2.15.0"
 description = "Google Cloud Language API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_language-2.14.0-py2.py3-none-any.whl", hash = "sha256:c737d58a2423c29d0d642a39d3dfa24f1aff8ab86db735ed58d1aa3346608642"},
-    {file = "google_cloud_language-2.14.0.tar.gz", hash = "sha256:05e5e7a2219abe7abd4ef51a329cc5cbb64c31dd024bd5372d9fa2bf619517a9"},
+    {file = "google_cloud_language-2.15.0-py2.py3-none-any.whl", hash = "sha256:50a6d2d5ad56059426eb28d892ac962037a1edab79fbd31ba58b6062d4396dc2"},
+    {file = "google_cloud_language-2.15.0.tar.gz", hash = "sha256:ad7b2373d1e003f67440b79dcf5a923644a7d99135b3728bf38d72b05fe2f32d"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [[package]]
 name = "google-cloud-monitoring"
-version = "2.22.2"
+version = "2.23.0"
 description = "Google Cloud Monitoring API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_monitoring-2.22.2-py2.py3-none-any.whl", hash = "sha256:3f07aead6a80a894c5f8e151f1cccf78478eab14e14294f4b83aaa3f478b5c4e"},
-    {file = "google_cloud_monitoring-2.22.2.tar.gz", hash = "sha256:9fc22dac48d14dd1c7fb83ee4a54f7a57bf9852ee6b5c9dca9e3bb093b04c7ee"},
+    {file = "google_cloud_monitoring-2.23.0-py2.py3-none-any.whl", hash = "sha256:7c402d1d23d8626ec18e7280f6d438e08f16fc55ca844b37ebe063265c1d2cfb"},
+    {file = "google_cloud_monitoring-2.23.0.tar.gz", hash = "sha256:a4c24131ab197da6882bcf3435c4b29df7b52b999cc4d45533cf4c2936bebf99"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [package.extras]
@@ -902,37 +911,43 @@ overrides = {version = ">=7.0.1,<8.0.0", markers = "python_version >= \"3.12\""}
 
 [[package]]
 name = "google-cloud-recommendations-ai"
-version = "0.10.12"
+version = "0.10.13"
 description = "Google Cloud Recommendations Ai API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_recommendations_ai-0.10.12-py2.py3-none-any.whl", hash = "sha256:2b728170ca75a25902bff77abb17a104d27c52a9b7770879e4ba803b64a25e4b"},
-    {file = "google_cloud_recommendations_ai-0.10.12.tar.gz", hash = "sha256:e93463eb20ca61984e2c4e3c5a3ce64dfe29f9164ef99ec60b01f3402a92c85d"},
+    {file = "google_cloud_recommendations_ai-0.10.13-py2.py3-none-any.whl", hash = "sha256:9a25967375296c5fdc38f6c3e34f46811f74b02fe53c8f4dca1b7b60232fad6e"},
+    {file = "google_cloud_recommendations_ai-0.10.13.tar.gz", hash = "sha256:0f320b11d3f7c19b91aadaeddcd5b5ca210171799f6c9e88f22b1d2f47ef1b73"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [[package]]
 name = "google-cloud-resource-manager"
-version = "1.12.5"
+version = "1.13.0"
 description = "Google Cloud Resource Manager API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_resource_manager-1.12.5-py2.py3-none-any.whl", hash = "sha256:2708a718b45c79464b7b21559c701b5c92e6b0b1ab2146d0a256277a623dc175"},
-    {file = "google_cloud_resource_manager-1.12.5.tar.gz", hash = "sha256:b7af4254401ed4efa3aba3a929cb3ddb803fa6baf91a78485e45583597de5891"},
+    {file = "google_cloud_resource_manager-1.13.0-py2.py3-none-any.whl", hash = "sha256:33beb4528c2b7aee7a97ed843710581a7b4a27f3dd1fa41a0bf3359b3d68853f"},
+    {file = "google_cloud_resource_manager-1.13.0.tar.gz", hash = "sha256:ae4bf69443f14b37007d4d84150115b0942e8b01650fd7a1fc6ff4dc1760e5c4"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
 grpc-google-iam-v1 = ">=0.12.4,<1.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [[package]]
@@ -984,36 +999,42 @@ tracing = ["opentelemetry-api (>=1.1.0)"]
 
 [[package]]
 name = "google-cloud-videointelligence"
-version = "2.13.5"
+version = "2.14.0"
 description = "Google Cloud Videointelligence API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_videointelligence-2.13.5-py2.py3-none-any.whl", hash = "sha256:80d15edf76fa37f158eb15fb3eb2618130a2640de6d612985fcc7efd85abd3e1"},
-    {file = "google_cloud_videointelligence-2.13.5.tar.gz", hash = "sha256:729c774c0fb5524afcaec46337b946088daa5aed91a0e2e15f00354d7c3bf8a3"},
+    {file = "google_cloud_videointelligence-2.14.0-py2.py3-none-any.whl", hash = "sha256:ad0e4f5828a0d6fe2987bfc977a752d1985aae5c7f4dcefcf8e896f513c1110e"},
+    {file = "google_cloud_videointelligence-2.14.0.tar.gz", hash = "sha256:1c1945234b56f702f846fdc7785b583b059bdd85eb4595bfa27c05145a5d55ef"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [[package]]
 name = "google-cloud-vision"
-version = "3.7.4"
+version = "3.8.0"
 description = "Google Cloud Vision API client library"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "google_cloud_vision-3.7.4-py2.py3-none-any.whl", hash = "sha256:0b956480002545ab8f13d2b4b8f316e9332cdeb6f65f92c0a20d72e9e0df3ad6"},
-    {file = "google_cloud_vision-3.7.4.tar.gz", hash = "sha256:80b67f0a2dc587a31d7482d3d2692a773f25fbd09468fd9de45d00b671aad999"},
+    {file = "google_cloud_vision-3.8.0-py2.py3-none-any.whl", hash = "sha256:cf63d8dbd1d1b5ead11eb061aeedbe139105029de7558f5bfbcd7b9abeaf6476"},
+    {file = "google_cloud_vision-3.8.0.tar.gz", hash = "sha256:591c9d1ca26308f10557fd0b1feccebaa7a65199f7027b77dc7311820400720b"},
 ]
 
 [package.dependencies]
 google-api-core = {version = ">=1.34.1,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0dev"
-proto-plus = ">=1.22.3,<2.0.0dev"
+proto-plus = [
+    {version = ">=1.25.0,<2.0.0dev", markers = "python_version >= \"3.13\""},
+    {version = ">=1.22.3,<2.0.0dev", markers = "python_version < \"3.13\""},
+]
 protobuf = ">=3.20.2,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<6.0.0dev"
 
 [[package]]
@@ -1687,13 +1708,13 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "proto-plus"
-version = "1.24.0"
+version = "1.25.0"
 description = "Beautiful, Pythonic protocol buffers."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "proto-plus-1.24.0.tar.gz", hash = "sha256:30b72a5ecafe4406b0d339db35b56c4059064e69227b8c3bda7462397f966445"},
-    {file = "proto_plus-1.24.0-py3-none-any.whl", hash = "sha256:402576830425e5f6ce4c2a6702400ac79897dab0b4343821aa5188b0fab81a12"},
+    {file = "proto_plus-1.25.0-py3-none-any.whl", hash = "sha256:c91fc4a65074ade8e458e95ef8bac34d4008daa7cce4a12d6707066fca648961"},
+    {file = "proto_plus-1.25.0.tar.gz", hash = "sha256:fbb17f57f7bd05a68b7707e745e26528b0b3c34e378db91eef93912c54982d91"},
 ]
 
 [package.dependencies]
@@ -2124,13 +2145,13 @@ files = [
 
 [[package]]
 name = "redis"
-version = "5.1.1"
+version = "5.2.0"
 description = "Python client for Redis database and key-value store"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "redis-5.1.1-py3-none-any.whl", hash = "sha256:f8ea06b7482a668c6475ae202ed8d9bcaa409f6e87fb77ed1043d912afd62e24"},
-    {file = "redis-5.1.1.tar.gz", hash = "sha256:f6c997521fedbae53387307c5d0bf784d9acc28d9f1d058abeac566ec4dbed72"},
+    {file = "redis-5.2.0-py3-none-any.whl", hash = "sha256:ae174f2bb3b1bf2b09d54bf3e51fbc1469cf6c10aa03e21141f51969801a7897"},
+    {file = "redis-5.2.0.tar.gz", hash = "sha256:0b1087665a771b1ff2e003aa5bdd354f15a70c9e25d5a7dbf9c722c16528a7b0"},
 ]
 
 [package.extras]
@@ -2416,26 +2437,6 @@ files = [
 [package.dependencies]
 cryptography = ">=2.0"
 jeepney = ">=0.6"
-
-[[package]]
-name = "setuptools"
-version = "75.2.0"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "setuptools-75.2.0-py3-none-any.whl", hash = "sha256:a7fcb66f68b4d9e8e66b42f9876150a3371558f98fa32222ffaa5bced76406f8"},
-    {file = "setuptools-75.2.0.tar.gz", hash = "sha256:753bb6ebf1f465a1912e19ed1d41f403a79173a9acf66a42e7e6aec45c3c16ec"},
-]
-
-[package.extras]
-check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1)", "ruff (>=0.5.2)"]
-core = ["importlib-metadata (>=6)", "importlib-resources (>=5.10.2)", "jaraco.collections", "jaraco.functools", "jaraco.text (>=3.7)", "more-itertools", "more-itertools (>=8.8)", "packaging", "packaging (>=24)", "platformdirs (>=2.6.2)", "tomli (>=2.0.1)", "wheel (>=0.43.0)"]
-cover = ["pytest-cov"]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier", "towncrier (<24.7)"]
-enabler = ["pytest-enabler (>=2.2)"]
-test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "jaraco.test", "packaging (>=23.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.*)", "pytest-home (>=0.5)", "pytest-perf", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel (>=0.44.0)"]
-type = ["importlib-metadata (>=7.0.2)", "jaraco.develop (>=7.21)", "mypy (==1.11.*)", "pytest-mypy"]
 
 [[package]]
 name = "shapely"
@@ -2804,4 +2805,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "9b88f9b6206afd799a63c3038c857a0e77a146e3c36e7e1cac1cc0dbe1afaad1"
+content-hash = "92f3168136a5249684d1ec98d29d4c51a66d7540defd8aa27269c9338ddd3637"
