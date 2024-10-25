@@ -78,6 +78,7 @@ def run(
     metric_type: str = "count",
     metric_field: Optional[str] = None,
     window_size: int = 60,
+    dataflow_template_type: Optional[str] = None,
 ) -> None:
     """Run the pipeline"""
     if runner not in ["DataflowRunner", "DirectRunner"]:
@@ -107,13 +108,16 @@ def run(
     if runner == "DataflowRunner":
         if not region or not temp_location:
             raise ValueError("region and temp_location are required for DataflowRunner")
-        pipeline_options.extend(
-            [
-                f"--region={region}",
-                f"--temp_location={temp_location}",
-                "--setup_file=./setup.py",
-            ]
-        )
+
+        options = [
+            f"--region={region}",
+            f"--temp_location={temp_location}",
+        ]
+
+        if dataflow_template_type != "flex":
+            options.append("--setup_file=./setup.py")
+
+        pipeline_options.extend(options)
 
     parsed_filter_conditions = parse_filter_conditions(filter_conditions)
     metrics_config = create_metrics_config(
@@ -167,6 +171,10 @@ def main():
         type=int,
         default=60,
     )
+    parser.add_argument(
+        "--dataflow-template-type",
+        help="Type of Dataflow template (flex or classic)",
+    )
 
     args = parser.parse_args()
     run(
@@ -182,6 +190,7 @@ def main():
         metric_type=args.metric_type,
         metric_field=args.metric_field,
         window_size=args.window_size,
+        dataflow_template_type=args.dataflow_template_type,
     )
 
 

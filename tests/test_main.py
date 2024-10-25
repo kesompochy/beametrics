@@ -218,3 +218,41 @@ def test_run_without_required_field(mock_pipeline):
             export_type="monitoring",
         )
     assert "field is required for sum metric type" in str(exc_info.value)
+
+
+@patch("beametrics.main.Pipeline")
+def test_run_with_flex_template(mock_pipeline):
+    """Test pipeline with Flex Template type"""
+    mock_pipeline_instance = MagicMock()
+    mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
+
+    run(
+        project_id="test-project",
+        subscription="projects/test-project/subscriptions/test-subscription",
+        metric_labels='{"service": "test-service"}',
+        metric_name="test-metric",
+        filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+        runner="DataflowRunner",
+        export_type="monitoring",
+        dataflow_template_type="flex",
+        region="us-central1",
+        temp_location="gs://test-bucket/temp",
+    )
+
+    mock_pipeline.assert_called_once()
+    pipeline_options = mock_pipeline.call_args[1]["options"]
+    expected_options = [
+        "--runner=DataflowRunner",
+        "--project=test-project",
+        "--streaming",
+        "--region=us-central1",
+        "--temp_location=gs://test-bucket/temp",
+    ]
+    assert pipeline_options.get_all_options()["runner"] == "DataflowRunner"
+    assert pipeline_options.get_all_options()["project"] == "test-project"
+    assert pipeline_options.get_all_options()["streaming"] is True
+    assert pipeline_options.get_all_options()["region"] == "us-central1"
+    assert (
+        pipeline_options.get_all_options()["temp_location"] == "gs://test-bucket/temp"
+    )
+    assert "--setup_file=./setup.py" not in expected_options
