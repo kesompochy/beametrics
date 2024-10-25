@@ -20,12 +20,12 @@ def test_metrics_config_with_google_cloud_connection_config():
     """
     config = GoogleCloudMetricsConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
-        labels={"service": "api"},
+        metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
 
     assert config.metric_name == "custom.googleapis.com/pubsub/error_count"
-    assert config.labels == {"service": "api"}
+    assert config.metric_labels == {"service": "api"}
     assert config.connection_config.project_id == "test-project"
 
 
@@ -35,7 +35,7 @@ def test_google_cloud_metrics_exporter():
     """
     config = GoogleCloudMetricsConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
-        labels={"service": "api"},
+        metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
     with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
@@ -51,7 +51,7 @@ def test_google_cloud_metrics_exporter_parameters():
     """
     config = GoogleCloudMetricsConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
-        labels={"service": "api"},
+        metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
     with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
@@ -67,7 +67,7 @@ def test_google_cloud_metrics_exporter_parameters():
 
         time_series = request.time_series[0]
         assert time_series.metric.type == config.metric_name
-        assert time_series.metric.labels == config.labels
+        assert time_series.metric.labels == config.metric_labels
         assert time_series.resource.type == "global"
         assert time_series.points[0].value.double_value == 1.0
         assert time_series.points[0].interval.end_time.timestamp() > 0

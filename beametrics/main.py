@@ -31,7 +31,7 @@ def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
 
 def create_metrics_config(
     metric_name: str,
-    labels: dict,
+    metric_labels: dict,
     project_id: str,
     export_type: str,
 ) -> GoogleCloudMetricsConfig:
@@ -39,7 +39,7 @@ def create_metrics_config(
 
     Args:
         metric_name: Name of the metric
-        labels: Dictionary of labels to attach to the metric
+        metric_labels: Dictionary of labels to attach to the metric
         project_id: GCP project ID
         export_type: Type of export destination ("monitoring", etc)
 
@@ -52,7 +52,7 @@ def create_metrics_config(
     if export_type == "monitoring":
         return GoogleCloudMetricsConfig(
             metric_name=f"custom.googleapis.com/{metric_name}",
-            labels=labels,
+            metric_labels=metric_labels,
             connection_config=GoogleCloudConnectionConfig(project_id=project_id),
         )
     else:
@@ -62,7 +62,7 @@ def create_metrics_config(
 def run(
     project_id: str,
     subscription: str,
-    labels: str,
+    metric_labels: str,
     metric_name: str,
     filter_conditions: str,
     region: Optional[str] = None,
@@ -112,7 +112,7 @@ def run(
     parsed_filter_conditions = parse_filter_conditions(filter_conditions)
     metrics_config = create_metrics_config(
         metric_name=metric_name,
-        labels=json.loads(labels),
+        metric_labels=json.loads(metric_labels),
         project_id=project_id,
         export_type=export_type,
     )
@@ -121,7 +121,7 @@ def run(
         name=metric_name,
         type=metric_type_enum,
         field=metric_field,
-        labels=json.loads(labels),
+        metric_labels=json.loads(metric_labels),
     )
 
     with Pipeline(options=PipelineOptions(pipeline_options)) as p:
@@ -143,7 +143,7 @@ def main():
     parser.add_argument("--project-id", required=True)
     parser.add_argument("--subscription", required=True)
     parser.add_argument("--metric-name", required=True)
-    parser.add_argument("--labels", required=True)
+    parser.add_argument("--metric-labels", required=True)
     parser.add_argument("--filter-conditions", required=True)
     parser.add_argument("--region")
     parser.add_argument("--temp-location")
@@ -167,7 +167,7 @@ def main():
         project_id=args.project_id,
         subscription=args.subscription,
         metric_name=args.metric_name,
-        labels=args.labels,
+        metric_labels=args.metric_labels,
         filter_conditions=args.filter_conditions,
         region=args.region,
         temp_location=args.temp_location,

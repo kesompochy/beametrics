@@ -42,7 +42,7 @@ def test_beametrics_pipeline_structure():
 
     metrics_config = GoogleCloudMetricsConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
-        labels={"service": "test"},
+        metric_labels={"service": "test"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
 
@@ -50,7 +50,7 @@ def test_beametrics_pipeline_structure():
         name="error_count",
         type=MetricType.COUNT,
         field=None,
-        labels={"service": "test"},
+        metric_labels={"service": "test"},
     )
 
     # Mock the beam transforms
@@ -132,7 +132,7 @@ class MockMetricsConfig(GoogleCloudMetricsConfig):
     def __init__(self):
         super().__init__(
             metric_name="test-metric",
-            labels={"service": "test"},
+            metric_labels={"service": "test"},
             connection_config=MockConnectionConfig(),
         )
 
@@ -148,7 +148,7 @@ class MockMetricDefinition(MetricDefinition):
             name="test-metric",
             type=MetricType.COUNT,
             field=None,
-            labels={"service": "test"},
+            metric_labels={"service": "test"},
         )
 
 

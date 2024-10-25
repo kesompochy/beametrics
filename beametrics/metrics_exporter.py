@@ -28,7 +28,7 @@ class MetricsConfig(Protocol):
     """Configuration for metrics exporting"""
 
     metric_name: str
-    labels: dict[str, str]
+    metric_labels: dict[str, str]
     connection_config: ConnectionConfig
 
 
@@ -37,7 +37,7 @@ class GoogleCloudMetricsConfig(MetricsConfig):
     """Configuration for Google Cloud metrics exporting"""
 
     metric_name: str
-    labels: dict[str, str]
+    metric_labels: dict[str, str]
     connection_config: GoogleCloudConnectionConfig
 
 
@@ -73,7 +73,7 @@ class GoogleCloudMetricsExporter(MetricsExporter):
         series = monitoring_v3.TimeSeries()
         series.metric.type = self.config.metric_name
 
-        final_labels = dict(self.config.labels)
+        final_labels = dict(self.config.metric_labels)
         if dynamic_labels:
             final_labels.update(dynamic_labels)
 

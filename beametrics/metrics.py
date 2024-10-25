@@ -17,7 +17,7 @@ class MetricDefinition:
     name: str
     type: MetricType
     field: Optional[str]
-    labels: Dict[str, str]
+    metric_labels: Dict[str, str]
 
     def __post_init__(self):
         """Validate metric definition after initialization"""

@@ -40,7 +40,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
     run(
         project_id="test-project",
         subscription="projects/test-project/subscriptions/test-subscription",
-        labels='{"service": "test-service"}',
+        metric_labels='{"service": "test-service"}',
         metric_name="test-metric",
         filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
         region="us-central1",
@@ -64,7 +64,7 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
     run(
         project_id="test-project",
         subscription="projects/test-project/subscriptions/test-subscription",
-        labels='{"service": "test-service"}',
+        metric_labels='{"service": "test-service"}',
         metric_name="test-metric",
         filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
         runner="DirectRunner",
@@ -95,7 +95,7 @@ def test_run_with_unsupported_runner(mock_pipeline):
         run(
             project_id="test-project",
             subscription="projects/test-project/subscriptions/test-subscription",
-            labels='{"service": "test-service"}',
+            metric_labels='{"service": "test-service"}',
             metric_name="test-metric",
             filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
             region="us-central1",
@@ -116,7 +116,7 @@ def test_run_with_unsupported_export_type(mock_pipeline):
         run(
             project_id="test-project",
             subscription="projects/test-project/subscriptions/test-subscription",
-            labels='{"service": "test-service"}',
+            metric_labels='{"service": "test-service"}',
             metric_name="test-metric",
             filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
             region="us-central1",
@@ -132,14 +132,14 @@ def test_create_metrics_config_for_monitoring():
     """Test metrics config creation for Cloud Monitoring"""
     config = create_metrics_config(
         metric_name="test-metric",
-        labels={"service": "test-service"},
+        metric_labels={"service": "test-service"},
         project_id="test-project",
         export_type="monitoring",
     )
 
     assert isinstance(config, GoogleCloudMetricsConfig)
     assert config.metric_name == "custom.googleapis.com/test-metric"
-    assert config.labels == {"service": "test-service"}
+    assert config.metric_labels == {"service": "test-service"}
     assert isinstance(config.connection_config, GoogleCloudConnectionConfig)
     assert config.connection_config.project_id == "test-project"
 
@@ -149,7 +149,7 @@ def test_create_metrics_config_with_unsupported_type():
     with pytest.raises(ValueError) as exc_info:
         create_metrics_config(
             metric_name="test-metric",
-            labels={"service": "test-service"},
+            metric_labels={"service": "test-service"},
             project_id="test-project",
             export_type="unsupported",
         )
@@ -166,7 +166,7 @@ def test_run_with_sum_metric(mock_pipeline):
     run(
         project_id="test-project",
         subscription="projects/test-project/subscriptions/test-subscription",
-        labels='{"service": "test-service"}',
+        metric_labels='{"service": "test-service"}',
         metric_name="test-metric",
         metric_type="sum",
         metric_field="response_time",  # Required for SUM metric
@@ -193,7 +193,7 @@ def test_run_with_invalid_metric_type(mock_pipeline):
         run(
             project_id="test-project",
             subscription="projects/test-project/subscriptions/test-subscription",
-            labels='{"service": "test-service"}',
+            metric_labels='{"service": "test-service"}',
             metric_name="test-metric",
             metric_type="invalid_type",  # Invalid metric type
             filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -210,7 +210,7 @@ def test_run_without_required_field(mock_pipeline):
         run(
             project_id="test-project",
             subscription="projects/test-project/subscriptions/test-subscription",
-            labels='{"service": "test-service"}',
+            metric_labels='{"service": "test-service"}',
             metric_name="test-metric",
             metric_type="sum",  # SUM requires field
             filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
