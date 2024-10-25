@@ -81,6 +81,20 @@ def run(
     dataflow_template_type: Optional[str] = None,
 ) -> None:
     """Run the pipeline"""
+    print("Received parameters:")
+    print(f"  project_id: {project_id}")
+    print(f"  subscription: {subscription}")
+    print(f"  metric_labels: {metric_labels}")
+    print(f"  metric_name: {metric_name}")
+    print(f"  filter_conditions: {filter_conditions}")
+    print(f"  region: {region}")
+    print(f"  temp_location: {temp_location}")
+    print(f"  runner: {runner}")
+    print(f"  export_type: {export_type}")
+    print(f"  metric_type: {metric_type}")
+    print(f"  metric_field: {metric_field}")
+    print(f"  window_size: {window_size}")
+    print(f"  dataflow_template_type: {dataflow_template_type}")
     if runner not in ["DataflowRunner", "DirectRunner"]:
         raise ValueError(f"Unsupported runner type: {runner}")
 
@@ -115,8 +129,8 @@ def run(
         ]
 
         print(f"dataflow_template_type: {dataflow_template_type}")
-        if dataflow_template_type != "flex":
-            print("setup_file is added because template type is not flex")
+        if dataflow_template_type == "classic":
+            print("setup_file is added because template type is classic")
             options.append("--setup_file=./setup.py")
 
         pipeline_options.extend(options)
@@ -181,6 +195,7 @@ def main():
     )
 
     args = parser.parse_args()
+    print(f"args.dataflow_template_type: {args.dataflow_template_type}")
     run(
         project_id=args.project_id,
         subscription=args.subscription,
