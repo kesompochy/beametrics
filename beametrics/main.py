@@ -77,7 +77,7 @@ def run(
     export_type: str = "monitoring",
     metric_type: str = "count",
     metric_field: Optional[str] = None,
-    window_size: int = 60,
+    window_size: int = 120,
     dataflow_template_type: Optional[str] = None,
 ) -> None:
     """Run the pipeline"""
@@ -187,7 +187,7 @@ def main():
     parser.add_argument(
         "--window-size",
         type=int,
-        default=60,
+        default=120,
     )
     parser.add_argument(
         "--dataflow-template-type",
