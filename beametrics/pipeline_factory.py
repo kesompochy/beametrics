@@ -3,6 +3,12 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam import Pipeline
 from typing import Optional
 from dataclasses import dataclass
+from enum import Enum, auto
+
+
+class TemplateType(Enum):
+    FLEX = "flex"
+    CLASSIC = "classic"
 
 
 @dataclass
@@ -14,20 +20,22 @@ class DataflowPipelineConfig:
     temp_location: str
     streaming: bool = True
     runner: str = "DataflowRunner"
-    setup_file: str = "./setup.py"
+    setup_file: Optional[str] = None
+    template_type: TemplateType = TemplateType.FLEX
 
     def to_pipeline_options(self) -> PipelineOptions:
         """Convert config to PipelineOptions."""
-        return PipelineOptions(
-            [
-                f"--project={self.project_id}",
-                f"--region={self.region}",
-                f"--temp_location={self.temp_location}",
-                f"--runner={self.runner}",
-                f"--setup_file={self.setup_file}",
-                "--streaming",
-            ]
-        )
+        options = [
+            f"--project={self.project_id}",
+            f"--region={self.region}",
+            f"--temp_location={self.temp_location}",
+            f"--runner={self.runner}",
+            "--streaming",
+        ]
+
+        if self.template_type == TemplateType.CLASSIC and self.setup_file:
+            options.append(f"--setup_file={self.setup_file}")
+        return PipelineOptions(options)
 
 
 class MetricsPipelineFactory(ABC):

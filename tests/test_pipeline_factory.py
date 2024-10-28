@@ -5,6 +5,7 @@ from beametrics.pipeline_factory import (
     GoogleCloudPipelineFactory,
     DataflowPipelineConfig,
 )
+from beametrics.pipeline_factory import TemplateType
 
 
 def test_google_cloud_pipeline_factory():
@@ -24,7 +25,7 @@ def test_google_cloud_pipeline_factory():
     assert all_options["streaming"] is True
     assert all_options["region"] == "us-central1"
     assert all_options["temp_location"] == "gs://test-bucket/temp"
-    assert all_options["setup_file"] == "./setup.py"
+    assert all_options.get("setup_file") is None
 
     pipeline = factory.create_pipeline()
     assert isinstance(pipeline, Pipeline)
@@ -61,7 +62,8 @@ def test_dataflow_pipeline_config_defaults():
 
     assert config.streaming is True
     assert config.runner == "DataflowRunner"
-    assert config.setup_file == "./setup.py"
+    assert config.setup_file is None
+    assert config.template_type == TemplateType.FLEX
 
 
 def test_google_cloud_pipeline_factory_requires_all_parameters():
