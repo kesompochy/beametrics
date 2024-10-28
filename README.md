@@ -1,3 +1,3 @@
 # Beametrics
 
-Beametrics is a streaming tool for transforming logs to be metrics.
+Let your logs be metrics in real-time with Apache Beam.
