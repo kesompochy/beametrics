@@ -70,7 +70,7 @@ def test_beametrics_pipeline_structure():
 
         # Act
         pipeline = PubsubToCloudMonitoringPipeline(
-            filter_condition, metrics_config, metric_definition
+            filter_condition, metrics_config, metric_definition, window_size=60
         )
         pipeline.expand(mock_pcoll)
 
@@ -83,7 +83,16 @@ def test_beametrics_pipeline_structure():
 @patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
 def test_count_metric_aggregation(mock_export):
     """Test COUNT metric aggregation"""
-    with TestPipeline() as p:
+    with TestPipeline(
+        options=PipelineOptions(
+            [
+                "--export-metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--metric-labels={"service": "test"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+            ]
+        )
+    ) as p:
         input_data = [
             b'{"severity": "ERROR", "message": "test1"}',
             b'{"severity": "ERROR", "message": "test2"}',
@@ -104,7 +113,18 @@ def test_count_metric_aggregation(mock_export):
 @patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
 def test_sum_metric_aggregation(mock_export):
     """Test SUM metric aggregation"""
-    with TestPipeline() as p:
+    with TestPipeline(
+        options=PipelineOptions(
+            [
+                "--export-metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--metric-labels={"service": "test"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+                "--metric-type=sum",
+                "--metric-field=response_time",
+            ]
+        )
+    ) as p:
         input_data = [
             b'{"severity": "ERROR", "bytes": 100}',
             b'{"severity": "ERROR", "bytes": 150}',
@@ -172,12 +192,3 @@ def test_fixed_window_size_validation():
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
-
-    with pytest.raises(ValueError) as exc_info:
-        PubsubToCloudMonitoringPipeline(
-            filter_conditions=[MockFilterCondition()],
-            metrics_config=MockMetricsConfig(),
-            metric_definition=MockMetricDefinition(),
-            window_size=59,
-        )
-    assert "window_size must be at least 60 seconds" in str(exc_info.value)

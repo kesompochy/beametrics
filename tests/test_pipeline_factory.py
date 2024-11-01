@@ -6,6 +6,7 @@ from beametrics.pipeline_factory import (
     DataflowPipelineConfig,
 )
 from beametrics.pipeline_factory import TemplateType
+from beametrics.main import BeametricsOptions
 
 
 def test_google_cloud_pipeline_factory():
@@ -16,7 +17,23 @@ def test_google_cloud_pipeline_factory():
         temp_location="gs://test-bucket/temp",
     )
     factory = GoogleCloudPipelineFactory(config=config)
-    options = factory.create_pipeline_options()
+
+    required_args = [
+        "--export-metric-name=test-metric",
+        "--subscription=projects/test-project/subscriptions/test-sub",
+        '--metric-labels={"service": "test"}',
+        '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+    ]
+    options = factory.create_pipeline_options(required_args)
+
+    options.view_as(BeametricsOptions).export_metric_name = "test-metric"
+    options.view_as(BeametricsOptions).subscription = (
+        "projects/test-project/subscriptions/test-sub"
+    )
+    options.view_as(BeametricsOptions).metric_labels = '{"service": "test"}'
+    options.view_as(BeametricsOptions).filter_conditions = (
+        '[{"field": "severity", "value": "ERROR"}]'
+    )
 
     assert isinstance(options, PipelineOptions)
     all_options = options.get_all_options()
@@ -39,13 +56,14 @@ def test_google_cloud_pipeline_factory_with_custom_options():
         temp_location="gs://test-bucket/temp",
     )
     factory = GoogleCloudPipelineFactory(config=base_config)
-
-    custom_config = DataflowPipelineConfig(
-        project_id="custom-project",
-        region="us-central1",
-        temp_location="gs://test-bucket/temp",
-    )
-    custom_options = custom_config.to_pipeline_options()
+    pipeline_args = [
+        "--project=custom-project",
+        "--export-metric-name=test-metric",
+        "--subscription=projects/test-project/subscriptions/test-sub",
+        '--metric-labels={"service": "test"}',
+        '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+    ]
+    custom_options = PipelineOptions(pipeline_args)
 
     pipeline = factory.create_pipeline(options=custom_options)
     assert isinstance(pipeline, Pipeline)

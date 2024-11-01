@@ -4,6 +4,9 @@ from typing import Protocol, Optional, Dict
 from google.cloud import monitoring_v3
 import time
 import apache_beam as beam
+from typing import Union
+from apache_beam.options.value_provider import ValueProvider
+import json
 
 
 class ConnectionConfig(Protocol):
@@ -28,7 +31,7 @@ class MetricsConfig(Protocol):
     """Configuration for metrics exporting"""
 
     metric_name: str
-    metric_labels: dict[str, str]
+    metric_labels: Union[ValueProvider, dict[str, str]]
     connection_config: ConnectionConfig
 
 
@@ -37,7 +40,7 @@ class GoogleCloudMetricsConfig(MetricsConfig):
     """Configuration for Google Cloud metrics exporting"""
 
     metric_name: str
-    metric_labels: dict[str, str]
+    metric_labels: Union[ValueProvider, dict[str, str]]
     connection_config: GoogleCloudConnectionConfig
 
 
@@ -73,7 +76,10 @@ class GoogleCloudMetricsExporter(MetricsExporter):
         series = monitoring_v3.TimeSeries()
         series.metric.type = self.config.metric_name
 
-        final_labels = dict(self.config.metric_labels)
+        if isinstance(self.config.metric_labels, ValueProvider):
+            final_labels = json.loads(self.config.metric_labels.get())
+        else:
+            final_labels = self.config.metric_labels
         if dynamic_labels:
             final_labels.update(dynamic_labels)
 

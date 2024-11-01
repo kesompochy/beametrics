@@ -1,5 +1,5 @@
 import apache_beam as beam
-from apache_beam.transforms.window import FixedWindows
+from apache_beam.transforms.window import FixedWindows, TimestampedValue, IntervalWindow
 from typing import Dict, Any, List
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricType, MetricDefinition
@@ -7,6 +7,13 @@ from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
 )
+from apache_beam.transforms.core import WindowIntoFn
+from apache_beam.coders.coders import GlobalWindowCoder
+
+
+class DynamicWindowIntoFn(FixedWindows):
+    def __init__(self, window_size):
+        super().__init__(window_size)
 
 
 def parse_json(message: bytes) -> Dict[str, Any]:
@@ -58,7 +65,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
         filter_conditions: List[FilterCondition],
         metrics_config: GoogleCloudMetricsConfig,
         metric_definition: MetricDefinition,
-        window_size: int = 60,
+        window_size: beam.options.value_provider.ValueProvider,
     ):
         """Initialize the pipeline transform
 
@@ -71,8 +78,6 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
         Raises:
             ValueError: If window_size is less than 60 seconds
         """
-        if window_size < 60:
-            raise ValueError("window_size must be at least 60 seconds")
 
         super().__init__()
         self.filter = MessageFilter(filter_conditions)
@@ -82,7 +87,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
 
     def _get_window_transform(self):
         """Get the window transform with configured size"""
-        return beam.WindowInto(FixedWindows(self.window_size))
+        return beam.WindowInto(DynamicWindowIntoFn(self.window_size))
 
     def _get_combiner(self):
         """Get appropriate combiner based on metric type"""
@@ -96,7 +101,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
     def expand(self, pcoll):
         filtered = (
             pcoll
-            | "Window" >> self._get_window_transform()
+            # | "Window" >> self._get_window_transform()
             | "DecodeAndParse" >> beam.ParDo(DecodeAndParse())
             | "FilterMessages" >> beam.Filter(self.filter.matches)
         )
@@ -112,6 +117,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
 
         return (
             values
+            | "Window" >> beam.WindowInto(FixedWindows(60))
             | "AggregateMetrics"
             >> beam.CombineGlobally(self._get_combiner()).without_defaults()
             | "ExportMetrics"

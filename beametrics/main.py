@@ -17,6 +17,104 @@ from beametrics.pipeline_factory import (
 from apache_beam import Pipeline
 from enum import Enum
 from typing import Dict, Optional, List
+from apache_beam.options.pipeline_options import StandardOptions
+from apache_beam.options.value_provider import ValueProvider
+import inspect
+from apache_beam.options.pipeline_options import GoogleCloudOptions
+
+
+class BeametricsOptions(PipelineOptions):
+    """Pipeline options for Beametrics."""
+
+    @classmethod
+    def _add_argparse_args(cls, parser):
+        if any(group.title == "Beametrics Options" for group in parser._action_groups):
+            return
+        parser.add_argument_group("Beametrics Options")
+
+        # Required parameters
+        parser.add_value_provider_argument(
+            "--export-metric-name",
+            type=str,
+            required=True,
+            help="Name of the metric to create",
+        )
+        parser.add_value_provider_argument(
+            "--subscription",
+            type=str,
+            required=True,
+            help="Pub/Sub subscription to read from",
+        )
+        parser.add_value_provider_argument(
+            "--metric-labels",
+            type=str,
+            required=True,
+            help="Labels to attach to the metric (JSON format)",
+        )
+        parser.add_value_provider_argument(
+            "--filter-conditions",
+            type=str,
+            required=True,
+            help="Filter conditions (JSON format)",
+        )
+
+        # Optional parameters
+        parser.add_value_provider_argument(
+            "--metric-type",
+            type=str,
+            default="count",
+            help="Type of metric to generate (count or sum)",
+        )
+        parser.add_value_provider_argument(
+            "--metric-field", type=str, help="Field to use for sum metrics"
+        )
+        parser.add_value_provider_argument(
+            "--window-size", type=int, default=120, help="Window size in seconds"
+        )
+        parser.add_value_provider_argument(
+            "--export-type",
+            type=str,
+            default="monitoring",
+            help="Type of export destination",
+        )
+        parser.add_value_provider_argument(
+            "--dataflow-template-type",
+            type=str,
+            help="Type of Dataflow template (flex or classic)",
+        )
+
+    def validate_options(self):
+        standard_options = self.view_as(StandardOptions)
+        if standard_options.runner not in ["DirectRunner", "DataflowRunner"]:
+            raise ValueError(f"Unsupported runner type: {standard_options.runner}")
+
+        if self.export_type != "monitoring":
+            raise ValueError(f"Unsupported export type: {self.export_type}")
+
+        metric_type = self.metric_type
+        if isinstance(metric_type, beam.options.value_provider.ValueProvider):
+            if isinstance(metric_type, beam.options.value_provider.StaticValueProvider):
+                metric_type = metric_type.value
+            else:
+                metric_type = "count"
+
+        if metric_type not in ["count", "sum"]:
+            raise ValueError(f"Unsupported metric type: {metric_type}")
+
+        if metric_type == "sum":
+            metric_field = getattr(self, "metric_field", None)
+            if isinstance(metric_field, beam.options.value_provider.ValueProvider):
+                if isinstance(
+                    metric_field, beam.options.value_provider.StaticValueProvider
+                ):
+                    metric_field = metric_field.value
+                else:
+                    metric_field = None
+            if not metric_field:
+                raise ValueError("field is required for sum metric type")
+
+    def get(self, option_name, default_value=None):
+        return self._all_options.get(option_name, default_value)
 
 
 def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
@@ -36,7 +134,7 @@ def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
 
 
 def create_metrics_config(
-    metric_name: str,
+    export_metric_name: str,
     metric_labels: dict,
     project_id: str,
     export_type: str,
@@ -57,7 +155,7 @@ def create_metrics_config(
     """
     if export_type == "monitoring":
         return GoogleCloudMetricsConfig(
-            metric_name=f"custom.googleapis.com/{metric_name}",
+            metric_name=f"custom.googleapis.com/{export_metric_name}",
             metric_labels=metric_labels,
             connection_config=GoogleCloudConnectionConfig(project_id=project_id),
         )
@@ -65,100 +163,49 @@ def create_metrics_config(
         raise ValueError(f"Unsupported export type: {export_type}")
 
 
-def run(
-    project_id: str,
-    subscription: str,
-    metric_labels: str,
-    metric_name: str,
-    filter_conditions: str,
-    region: Optional[str] = None,
-    temp_location: Optional[str] = None,
-    runner: str = "DirectRunner",
-    export_type: str = "monitoring",
-    metric_type: str = "count",
-    metric_field: Optional[str] = None,
-    window_size: int = 120,
-    dataflow_template_type: Optional[str] = None,
-) -> None:
-    """Run the pipeline"""
-    print("Received parameters:")
-    print(f"  project_id: {project_id}")
-    print(f"  subscription: {subscription}")
-    print(f"  metric_labels: {metric_labels}")
-    print(f"  metric_name: {metric_name}")
-    print(f"  filter_conditions: {filter_conditions}")
-    print(f"  region: {region}")
-    print(f"  temp_location: {temp_location}")
-    print(f"  runner: {runner}")
-    print(f"  export_type: {export_type}")
-    print(f"  metric_type: {metric_type}")
-    print(f"  metric_field: {metric_field}")
-    print(f"  window_size: {window_size}")
-    print(f"  dataflow_template_type: {dataflow_template_type}")
-    if runner not in ["DataflowRunner", "DirectRunner"]:
-        raise ValueError(f"Unsupported runner type: {runner}")
+def run(pipeline_options: BeametricsOptions) -> None:
+    """Run the pipeline with the given options."""
+    options = pipeline_options.view_as(BeametricsOptions)
+    options.view_as(StandardOptions).streaming = True
+    options.validate_options()
 
-    if export_type != "monitoring":
-        raise ValueError(f"Unsupported export type: {export_type}")
+    google_cloud_options = pipeline_options.view_as(GoogleCloudOptions)
+    project_id = google_cloud_options.project
+    export_metric_name = options.export_metric_name
+    subscription = options.subscription.get()
+    metric_labels = options.metric_labels
+    filter_conditions = options.filter_conditions
+    metric_type = options.metric_type
+    metric_field = getattr(options, "metric_field", None)
+    window_size = options.window_size
+    export_type = options.export_type
 
-    if runner == "DataflowRunner":
-        if not region or not temp_location:
-            raise ValueError("region and temp_location are required for DataflowRunner")
-
-    try:
-        metric_type_enum = MetricType[metric_type.upper()]
-    except KeyError:
-        raise ValueError(f"Unsupported metric type: {metric_type}")
-
-    if metric_type_enum == MetricType.SUM and not metric_field:
-        raise ValueError("field is required for sum metric type")
-
-    pipeline_options = [
-        f"--runner={runner}",
-        f"--project={project_id}",
-        "--streaming",
-    ]
-
-    if runner == "DataflowRunner":
-        if not region or not temp_location:
-            raise ValueError("region and temp_location are required for DataflowRunner")
-
-        options = [
-            f"--region={region}",
-            f"--temp_location={temp_location}",
-        ]
-
-        print(f"dataflow_template_type: {dataflow_template_type}")
-        if dataflow_template_type == "classic":
-            print("setup_file is added because template type is classic")
-            options.append("--setup_file=./setup.py")
-
-        pipeline_options.extend(options)
-
-    print(f"pipeline_options after extend: {pipeline_options}")
-
-    parsed_filter_conditions = parse_filter_conditions(filter_conditions)
     metrics_config = create_metrics_config(
-        metric_name=metric_name,
-        metric_labels=json.loads(metric_labels),
+        export_metric_name=export_metric_name,
+        metric_labels=metric_labels,
         project_id=project_id,
         export_type=export_type,
     )
 
+    try:
+        metric_type_enum = MetricType[metric_type.get().upper()]
+    except KeyError:
+        raise ValueError(f"Unsupported metric type: {metric_type.get()}")
+
     metric_definition = MetricDefinition(
-        name=metric_name,
+        name=export_metric_name,
         type=metric_type_enum,
         field=metric_field,
-        metric_labels=json.loads(metric_labels),
+        metric_labels=metric_labels,
     )
 
-    with Pipeline(options=PipelineOptions(pipeline_options)) as p:
+    with Pipeline(options=pipeline_options) as p:
         (
             p
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
             >> PubsubToCloudMonitoringPipeline(
-                filter_conditions=parsed_filter_conditions,
+                filter_conditions=parse_filter_conditions(filter_conditions.get()),
                 metrics_config=metrics_config,
                 metric_definition=metric_definition,
                 window_size=window_size,
@@ -167,50 +214,9 @@ def run(
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--project-id", required=True)
-    parser.add_argument("--subscription", required=True)
-    parser.add_argument("--metric-name", required=True)
-    parser.add_argument("--metric-labels", required=True)
-    parser.add_argument("--filter-conditions", required=True)
-    parser.add_argument("--region")
-    parser.add_argument("--temp-location")
-    parser.add_argument("--runner", default="DataflowRunner")
-    parser.add_argument("--export-type", default="monitoring")
-    parser.add_argument(
-        "--metric-type",
-        default="count",
-        choices=["count", "sum"],
-        help="Type of metric to generate",
-    )
-    parser.add_argument("--metric-field", help="Field to use for sum/average metrics")
-    parser.add_argument(
-        "--window-size",
-        type=int,
-        default=120,
-    )
-    parser.add_argument(
-        "--dataflow-template-type",
-        help="Type of Dataflow template (flex or classic)",
-    )
-
-    args = parser.parse_args()
-    print(f"args.dataflow_template_type: {args.dataflow_template_type}")
-    run(
-        project_id=args.project_id,
-        subscription=args.subscription,
-        metric_name=args.metric_name,
-        metric_labels=args.metric_labels,
-        filter_conditions=args.filter_conditions,
-        region=args.region,
-        temp_location=args.temp_location,
-        runner=args.runner,
-        export_type=args.export_type,
-        metric_type=args.metric_type,
-        metric_field=args.metric_field,
-        window_size=args.window_size,
-        dataflow_template_type=args.dataflow_template_type,
-    )
+    """Main entry point."""
+    pipeline_options = BeametricsOptions()
+    run(pipeline_options)
 
 
 if __name__ == "__main__":
