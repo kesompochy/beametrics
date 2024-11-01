@@ -88,8 +88,15 @@ class BeametricsOptions(PipelineOptions):
         if standard_options.runner not in ["DirectRunner", "DataflowRunner"]:
             raise ValueError(f"Unsupported runner type: {standard_options.runner}")
 
-        if self.export_type != "monitoring":
-            raise ValueError(f"Unsupported export type: {self.export_type}")
+        export_type = self.export_type
+        if isinstance(export_type, beam.options.value_provider.ValueProvider):
+            if isinstance(export_type, beam.options.value_provider.StaticValueProvider):
+                export_type = export_type.value
+            else:
+                export_type = "monitoring"
+
+        if export_type != "monitoring":
+            raise ValueError(f"Unsupported export type: {export_type}")
 
         metric_type = self.metric_type
         if isinstance(metric_type, beam.options.value_provider.ValueProvider):
@@ -153,14 +160,20 @@ def create_metrics_config(
     Raises:
         ValueError: If export_type is not supported
     """
-    if export_type == "monitoring":
-        return GoogleCloudMetricsConfig(
-            metric_name=f"custom.googleapis.com/{export_metric_name}",
-            metric_labels=metric_labels,
-            connection_config=GoogleCloudConnectionConfig(project_id=project_id),
-        )
-    else:
+    if isinstance(export_type, beam.options.value_provider.ValueProvider):
+        if isinstance(export_type, beam.options.value_provider.StaticValueProvider):
+            export_type = export_type.value
+        else:
+            export_type = "monitoring"
+
+    if export_type != "monitoring":
         raise ValueError(f"Unsupported export type: {export_type}")
+
+    return GoogleCloudMetricsConfig(
+        metric_name=f"custom.googleapis.com/{export_metric_name}",
+        metric_labels=metric_labels,
+        connection_config=GoogleCloudConnectionConfig(project_id=project_id),
+    )
 
 
 def run(pipeline_options: BeametricsOptions) -> None:

@@ -77,9 +77,16 @@ class GoogleCloudMetricsExporter(MetricsExporter):
         series.metric.type = self.config.metric_name
 
         if isinstance(self.config.metric_labels, ValueProvider):
-            final_labels = json.loads(self.config.metric_labels.get())
+            if isinstance(
+                self.config.metric_labels,
+                beam.options.value_provider.StaticValueProvider,
+            ):
+                final_labels = json.loads(self.config.metric_labels.get())
+            else:
+                final_labels = {}
         else:
             final_labels = self.config.metric_labels
+
         if dynamic_labels:
             final_labels.update(dynamic_labels)
 

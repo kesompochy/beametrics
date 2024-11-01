@@ -91,12 +91,38 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
 
     def _get_combiner(self):
         """Get appropriate combiner based on metric type"""
-        if self.metric_definition.type == MetricType.COUNT:
-            return beam.combiners.CountCombineFn()
-        elif self.metric_definition.type == MetricType.SUM:
-            return beam.combiners.SumInt64Fn()
-        else:
-            raise ValueError(f"Unsupported metric type: {self.metric_definition.type}")
+        metric_type = self.metric_definition.type
+
+        class DeferredMetricCombiner(beam.CombineFn):
+            def __init__(self, metric_type):
+                self.metric_type = metric_type
+
+            def create_accumulator(self):
+                return 0
+
+            def add_input(self, accumulator, input):
+                if isinstance(input, dict):
+                    return accumulator + 1
+                return accumulator + input
+
+            def merge_accumulators(self, accumulators):
+                return sum(accumulators)
+
+            def extract_output(self, accumulator):
+                if isinstance(
+                    self.metric_type, beam.options.value_provider.ValueProvider
+                ):
+                    type_str = self.metric_type.get().upper()
+                else:
+                    type_str = self.metric_type.value.upper()
+
+                return (
+                    accumulator
+                    if type_str == "COUNT"
+                    else accumulator / len(accumulators)
+                )
+
+        return DeferredMetricCombiner(metric_type)
 
     def expand(self, pcoll):
         filtered = (
@@ -106,14 +132,27 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
             | "FilterMessages" >> beam.Filter(self.filter.matches)
         )
 
-        if self.metric_definition.type == MetricType.COUNT:
-            values = filtered
-        else:
-            values = (
-                filtered
-                | f"ExtractField_{self.metric_definition.field}"
-                >> beam.ParDo(ExtractField(self.metric_definition.field))
-            )
+        class MetricTypeRouter(beam.DoFn):
+            def __init__(self, metric_type, field):
+                self.metric_type = metric_type
+                self.field = field
+
+            def process(self, element):
+                if isinstance(
+                    self.metric_type, beam.options.value_provider.ValueProvider
+                ):
+                    is_count = self.metric_type.get().upper() == "COUNT"
+                else:
+                    is_count = self.metric_type == MetricType.COUNT
+
+                if is_count:
+                    yield element
+                else:
+                    yield float(element.get(self.field, 0))
+
+        values = filtered | "RouteByMetricType" >> beam.ParDo(
+            MetricTypeRouter(self.metric_definition.type, self.metric_definition.field)
+        )
 
         return (
             values

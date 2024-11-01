@@ -192,3 +192,98 @@ def test_fixed_window_size_validation():
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
+
+
+def test_beametrics_pipeline_with_runtime_value_provider():
+    """Test pipeline with ValueProvider for metric type"""
+    from apache_beam.options.value_provider import StaticValueProvider
+
+    metric_definition = MetricDefinition(
+        name="error_count",
+        type=StaticValueProvider(str, "count"),
+        field=None,
+        metric_labels={"service": "test"},
+    )
+
+    metrics_config = GoogleCloudMetricsConfig(
+        metric_name="custom.googleapis.com/pubsub/error_count",
+        metric_labels={"service": "test"},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+
+    filter_condition = FilterCondition(
+        field="severity", value="ERROR", operator="equals"
+    )
+
+    with patch("apache_beam.ParDo") as mock_pardo, patch(
+        "apache_beam.Filter"
+    ) as mock_filter, patch("apache_beam.WindowInto") as mock_window:
+
+        mock_pcoll = MagicMock()
+        pipeline = PubsubToCloudMonitoringPipeline(
+            filter_condition, metrics_config, metric_definition, window_size=60
+        )
+        pipeline.expand(mock_pcoll)
+
+        assert mock_pardo.called
+        assert mock_filter.called
+        assert mock_window.called
+
+
+def test_beametrics_pipeline_with_deferred_value_resolution():
+    """Verify that pipeline construction does not resolve ValueProvider values"""
+    from apache_beam.options.value_provider import RuntimeValueProvider
+
+    class UnresolvedValueProvider(RuntimeValueProvider):
+        def get(self):
+            raise ValueError("ValueProvider accessed during graph construction")
+
+    metric_definition = MetricDefinition(
+        name="error_count",
+        type=UnresolvedValueProvider(
+            option_name="metric_type", value_type=str, default_value="count"
+        ),
+        field=None,
+        metric_labels={"service": "test"},
+    )
+
+    pipeline = PubsubToCloudMonitoringPipeline(
+        filter_conditions=[MockFilterCondition()],
+        metrics_config=MockMetricsConfig(),
+        metric_definition=metric_definition,
+        window_size=300,
+    )
+
+    result = pipeline.expand(MagicMock())
+
+
+def test_deferred_metric_combiner_with_dict_input():
+    """Test DeferredMetricCombiner handles dict inputs correctly"""
+    from apache_beam.options.value_provider import StaticValueProvider
+
+    metric_definition = MetricDefinition(
+        name="error_count",
+        type=StaticValueProvider(str, "count"),
+        field=None,
+        metric_labels={"service": "test"},
+    )
+
+    pipeline = PubsubToCloudMonitoringPipeline(
+        filter_conditions=[MockFilterCondition()],
+        metrics_config=MockMetricsConfig(),
+        metric_definition=metric_definition,
+        window_size=300,
+    )
+
+    combiner = pipeline._get_combiner()
+    acc = combiner.create_accumulator()
+
+    dict_input = {"field": "value"}
+    acc = combiner.add_input(acc, dict_input)
+    assert acc == 1
+
+    acc = combiner.add_input(acc, {"another": "value"})
+    assert acc == 2
+
+    acc = combiner.add_input(acc, 5)
+    assert acc == 7
