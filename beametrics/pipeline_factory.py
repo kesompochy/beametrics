@@ -4,6 +4,7 @@ from apache_beam import Pipeline
 from typing import Optional
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import List
 
 
 class TemplateType(Enum):
@@ -33,7 +34,7 @@ class DataflowPipelineConfig:
             "--streaming",
         ]
 
-        if self.template_type == TemplateType.CLASSIC and self.setup_file:
+        if self.template_type == "classic" and self.setup_file:
             options.append(f"--setup_file={self.setup_file}")
         return PipelineOptions(options)
 
@@ -58,8 +59,19 @@ class GoogleCloudPipelineFactory(MetricsPipelineFactory):
     def __init__(self, config: DataflowPipelineConfig):
         self.config = config
 
-    def create_pipeline_options(self) -> PipelineOptions:
-        return self.config.to_pipeline_options()
+    def create_pipeline_options(self, pipeline_args=None) -> PipelineOptions:
+        if pipeline_args is None:
+            pipeline_args = []
+
+        config_args = [
+            "--runner=DataflowRunner",
+            "--streaming",
+            f"--project={self.config.project_id}",
+            f"--region={self.config.region}",
+            f"--temp_location={self.config.temp_location}",
+        ]
+        all_args = config_args + pipeline_args
+        return PipelineOptions(all_args)
 
     def create_pipeline(self, options: Optional[PipelineOptions] = None) -> Pipeline:
         if options is None:

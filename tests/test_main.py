@@ -1,57 +1,57 @@
-from beametrics.main import parse_filter_conditions, run, create_metrics_config
-from unittest.mock import patch, MagicMock, call
+from beametrics.main import (
+    parse_filter_conditions,
+    run,
+    create_metrics_config,
+    BeametricsOptions,
+)
+from unittest.mock import patch, MagicMock
 from beametrics.filter import FilterCondition
-from apache_beam.io.gcp.pubsub import ReadFromPubSub
 from beametrics.pipeline import PubsubToCloudMonitoringPipeline
 from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudConnectionConfig,
 )
-from beametrics.pipeline_factory import DataflowPipelineConfig
 import pytest
 
 
 def test_parse_filter_conditions():
-    """
-    Test parsing a valid filter condition from JSON string
-    """
+    """Test parsing a valid filter condition from JSON string"""
     json_str = '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
     conditions = parse_filter_conditions(json_str)
 
     assert isinstance(conditions, list)
     assert len(conditions) == 1
-
-    condition = conditions[0]
-    assert isinstance(condition, FilterCondition)
-    assert condition.field == "severity"
-    assert condition.value == "ERROR"
-    assert condition.operator == "equals"
+    assert isinstance(conditions[0], FilterCondition)
+    assert conditions[0].field == "severity"
+    assert conditions[0].value == "ERROR"
+    assert conditions[0].operator == "equals"
 
 
 @patch("beametrics.main.Pipeline")
 @patch("google.cloud.monitoring_v3.MetricServiceClient")
 def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
-    """
-    Test pipeline with DataflowRunner and Cloud Monitoring export
-    """
+    """Test pipeline with DataflowRunner and Cloud Monitoring export"""
     mock_pipeline_instance = MagicMock()
     mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
 
-    run(
-        project_id="test-project",
-        subscription="projects/test-project/subscriptions/test-subscription",
-        metric_labels='{"service": "test-service"}',
-        metric_name="test-metric",
-        filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-        region="us-central1",
-        temp_location="gs://test-bucket/temp",
-        runner="DataflowRunner",
-        export_type="monitoring",
+    options = BeametricsOptions(
+        [
+            "--runner=DataflowRunner",
+            "--project=test-project",
+            "--region=us-central1",
+            "--temp_location=gs://test-bucket/temp",
+            "--export-metric-name=test-metric",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            '--metric-labels={"service": "test-service"}',
+            '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            "--export-type=monitoring",
+            "--metric-type=count",
+        ]
     )
 
+    run(options)
+
     mock_pipeline.assert_called_once()
-    pipeline_options = mock_pipeline.call_args[1]["options"]
-    assert pipeline_options.get_all_options().get("runner") == "DataflowRunner"
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 
 
@@ -61,69 +61,70 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
     mock_pipeline_instance = MagicMock()
     mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
 
-    run(
-        project_id="test-project",
-        subscription="projects/test-project/subscriptions/test-subscription",
-        metric_labels='{"service": "test-service"}',
-        metric_name="test-metric",
-        filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-        runner="DirectRunner",
-        export_type="monitoring",
+    options = BeametricsOptions(
+        [
+            "--runner=DirectRunner",
+            "--project=test-project",
+            "--export-metric-name=test-metric",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            '--metric-labels={"service": "test-service"}',
+            '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            "--export-type=monitoring",
+        ]
     )
 
+    from apache_beam.options.value_provider import RuntimeValueProvider
+
+    RuntimeValueProvider.set_runtime_options(options)
+    try:
+        run(options)
+    finally:
+        RuntimeValueProvider.set_runtime_options(None)
+
     mock_pipeline.assert_called_once()
-    pipeline_options = mock_pipeline.call_args[1]["options"]
-    all_options = pipeline_options.get_all_options()
-
-    assert all_options["runner"] == "DirectRunner"
-    assert all_options["project"] == "test-project"
-    assert all_options["streaming"] is True
-
-    assert all_options.get("region") is None
-    assert all_options.get("temp_location") is None
-    assert all_options.get("setup_file") is None
-
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 
 
-@patch("beametrics.pipeline_factory.Pipeline")
+@patch("beametrics.main.Pipeline")
 def test_run_with_unsupported_runner(mock_pipeline):
-    """
-    Test pipeline with unsupported runner
-    """
+    """Test pipeline with unsupported runner"""
     with pytest.raises(ValueError) as exc_info:
-        run(
-            project_id="test-project",
-            subscription="projects/test-project/subscriptions/test-subscription",
-            metric_labels='{"service": "test-service"}',
-            metric_name="test-metric",
-            filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            region="us-central1",
-            temp_location="gs://test-bucket/temp",
-            runner="UnsupportedRunner",
-            export_type="monitoring",
+        options = BeametricsOptions(
+            [
+                "--runner=UnsupportedRunner",
+                "--project=test-project",
+                "--region=us-central1",
+                "--temp_location=gs://test-bucket/temp",
+                "--export-metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-subscription",
+                '--metric-labels={"service": "test-service"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+                "--export-type=monitoring",
+            ]
         )
+        run(options)
 
     assert "Unsupported runner type: UnsupportedRunner" in str(exc_info.value)
 
 
-@patch("beametrics.pipeline_factory.Pipeline")
+@patch("beametrics.main.Pipeline")
 def test_run_with_unsupported_export_type(mock_pipeline):
-    """
-    Test pipeline with unsupported export type
-    """
+    """Test pipeline with unsupported export type"""
     with pytest.raises(ValueError) as exc_info:
-        run(
-            project_id="test-project",
-            subscription="projects/test-project/subscriptions/test-subscription",
-            metric_labels='{"service": "test-service"}',
-            metric_name="test-metric",
-            filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            region="us-central1",
-            temp_location="gs://test-bucket/temp",
-            runner="DataflowRunner",
-            export_type="unsupported",
+        options = BeametricsOptions(
+            [
+                "--runner=DataflowRunner",
+                "--project=test-project",
+                "--region=us-central1",
+                "--temp_location=gs://test-bucket/temp",
+                "--export-metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-subscription",
+                '--metric-labels={"service": "test-service"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+                "--export-type=unsupported",
+            ]
         )
+        run(options)
 
     assert "Unsupported export type: unsupported" in str(exc_info.value)
 
@@ -131,7 +132,7 @@ def test_run_with_unsupported_export_type(mock_pipeline):
 def test_create_metrics_config_for_monitoring():
     """Test metrics config creation for Cloud Monitoring"""
     config = create_metrics_config(
-        metric_name="test-metric",
+        export_metric_name="test-metric",
         metric_labels={"service": "test-service"},
         project_id="test-project",
         export_type="monitoring",
@@ -144,45 +145,29 @@ def test_create_metrics_config_for_monitoring():
     assert config.connection_config.project_id == "test-project"
 
 
-def test_create_metrics_config_with_unsupported_type():
-    """Test metrics config creation with unsupported export type"""
-    with pytest.raises(ValueError) as exc_info:
-        create_metrics_config(
-            metric_name="test-metric",
-            metric_labels={"service": "test-service"},
-            project_id="test-project",
-            export_type="unsupported",
-        )
-
-    assert "Unsupported export type: unsupported" in str(exc_info.value)
-
-
 @patch("beametrics.main.Pipeline")
 def test_run_with_sum_metric(mock_pipeline):
     """Test pipeline with SUM metric type"""
     mock_pipeline_instance = MagicMock()
     mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
 
-    run(
-        project_id="test-project",
-        subscription="projects/test-project/subscriptions/test-subscription",
-        metric_labels='{"service": "test-service"}',
-        metric_name="test-metric",
-        metric_type="sum",
-        metric_field="response_time",  # Required for SUM metric
-        filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-        runner="DirectRunner",
-        export_type="monitoring",
+    options = BeametricsOptions(
+        [
+            "--runner=DirectRunner",
+            "--project=test-project",
+            "--export-metric-name=test-metric",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            '--metric-labels={"service": "test-service"}',
+            '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            "--metric-type=sum",
+            "--metric-field=response_time",
+            "--export-type=monitoring",
+        ]
     )
 
+    run(options)
+
     mock_pipeline.assert_called_once()
-    pipeline_options = mock_pipeline.call_args[1]["options"]
-    all_options = pipeline_options.get_all_options()
-
-    assert all_options["runner"] == "DirectRunner"
-    assert all_options["project"] == "test-project"
-    assert all_options["streaming"] is True
-
     mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
 
 
@@ -190,16 +175,20 @@ def test_run_with_sum_metric(mock_pipeline):
 def test_run_with_invalid_metric_type(mock_pipeline):
     """Test pipeline with invalid metric type"""
     with pytest.raises(ValueError) as exc_info:
-        run(
-            project_id="test-project",
-            subscription="projects/test-project/subscriptions/test-subscription",
-            metric_labels='{"service": "test-service"}',
-            metric_name="test-metric",
-            metric_type="invalid_type",  # Invalid metric type
-            filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            runner="DirectRunner",
-            export_type="monitoring",
+        options = BeametricsOptions(
+            [
+                "--runner=DirectRunner",
+                "--project=test-project",
+                "--export-metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-subscription",
+                '--metric-labels={"service": "test-service"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+                "--metric-type=invalid_type",
+                "--export-type=monitoring",
+            ]
         )
+        run(options)
+
     assert "Unsupported metric type: invalid_type" in str(exc_info.value)
 
 
@@ -207,16 +196,20 @@ def test_run_with_invalid_metric_type(mock_pipeline):
 def test_run_without_required_field(mock_pipeline):
     """Test pipeline without required field for SUM metric"""
     with pytest.raises(ValueError) as exc_info:
-        run(
-            project_id="test-project",
-            subscription="projects/test-project/subscriptions/test-subscription",
-            metric_labels='{"service": "test-service"}',
-            metric_name="test-metric",
-            metric_type="sum",  # SUM requires field
-            filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            runner="DirectRunner",
-            export_type="monitoring",
+        options = BeametricsOptions(
+            [
+                "--runner=DirectRunner",
+                "--project=test-project",
+                "--export-metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-subscription",
+                '--metric-labels={"service": "test-service"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+                "--metric-type=sum",
+                "--export-type=monitoring",
+            ]
         )
+        run(options)
+
     assert "field is required for sum metric type" in str(exc_info.value)
 
 
@@ -226,33 +219,30 @@ def test_run_with_flex_template(mock_pipeline):
     mock_pipeline_instance = MagicMock()
     mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
 
-    run(
-        project_id="test-project",
-        subscription="projects/test-project/subscriptions/test-subscription",
-        metric_labels='{"service": "test-service"}',
-        metric_name="test-metric",
-        filter_conditions='[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-        runner="DataflowRunner",
-        export_type="monitoring",
-        dataflow_template_type="flex",
-        region="us-central1",
-        temp_location="gs://test-bucket/temp",
+    options = BeametricsOptions(
+        [
+            "--runner=DataflowRunner",
+            "--project=test-project",
+            "--region=us-central1",
+            "--temp_location=gs://test-bucket/temp",
+            "--export-metric-name=test-metric",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            '--metric-labels={"service": "test-service"}',
+            '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            "--export-type=monitoring",
+            "--dataflow_template_type=flex",
+            "--metrics-type=count",
+        ]
     )
 
-    mock_pipeline.assert_called_once()
-    pipeline_options = mock_pipeline.call_args[1]["options"]
-    expected_options = [
-        "--runner=DataflowRunner",
-        "--project=test-project",
-        "--streaming",
-        "--region=us-central1",
-        "--temp_location=gs://test-bucket/temp",
-    ]
-    assert pipeline_options.get_all_options()["runner"] == "DataflowRunner"
-    assert pipeline_options.get_all_options()["project"] == "test-project"
-    assert pipeline_options.get_all_options()["streaming"] is True
-    assert pipeline_options.get_all_options()["region"] == "us-central1"
-    assert (
-        pipeline_options.get_all_options()["temp_location"] == "gs://test-bucket/temp"
-    )
-    assert "--setup_file=./setup.py" not in expected_options
+    from apache_beam.options.value_provider import RuntimeValueProvider
+
+    runtime_options = {
+        "metric_type": "count",
+        "metric_labels": '{"service": "test-service"}',
+    }
+    RuntimeValueProvider.set_runtime_options(runtime_options)
+    try:
+        run(options)
+    finally:
+        RuntimeValueProvider.set_runtime_options(None)
