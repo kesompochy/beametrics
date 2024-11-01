@@ -1,0 +1,77 @@
+{
+  "name": "beametrics",
+  "description": "Beam pipeline for exporting metrics to Cloud Monitoring",
+  "parameters": [
+    {
+      "name": "project-id",
+      "label": "Project ID",
+      "helpText": "Google Cloud project ID"
+    },
+    {
+      "name": "subscription",
+      "label": "Pub/Sub subscription",
+      "helpText": "Full path to Pub/Sub subscription"
+    },
+    {
+      "name": "export-metric-name",
+      "label": "Metric name",
+      "helpText": "Name of the metric to export"
+    },
+    {
+      "name": "metric-labels",
+      "label": "Metric labels",
+      "helpText": "JSON string of labels to attach to metrics"
+    },
+    {
+      "name": "filter-conditions",
+      "label": "Filter conditions",
+      "helpText": "JSON array of filter conditions"
+    },
+    {
+      "name": "region",
+      "label": "Region",
+      "helpText": "GCP region for Dataflow job",
+      "isOptional": true
+    },
+    {
+      "name": "temp-location",
+      "label": "Temporary location",
+      "helpText": "GCS location for temporary files",
+      "isOptional": true
+    },
+    {
+      "name": "export-type",
+      "label": "Export type",
+      "helpText": "Type of export destination",
+      "isOptional": true,
+      "defaultValue": "monitoring"
+    },
+    {
+      "name": "metric-type",
+      "label": "Metric type",
+      "helpText": "Type of metric (count or sum)",
+      "isOptional": true,
+      "defaultValue": "count"
+    },
+    {
+      "name": "metric-field",
+      "label": "Metric field",
+      "helpText": "Field to use for sum metrics",
+      "isOptional": true
+    },
+    {
+      "name": "window-size",
+      "label": "Window size",
+      "helpText": "Window size in seconds",
+      "isOptional": true,
+      "defaultValue": "60"
+    },
+    {
+      "name": "dataflow-template-type",
+      "label": "Dataflow Template Type",
+      "helpText": "Type of Dataflow template (flex or classic)",
+      "isOptional": true,
+      "defaultValue": "flex"
+    }
+  ]
+}
