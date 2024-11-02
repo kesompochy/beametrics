@@ -2,6 +2,8 @@
 
 Let your logs be metrics in real-time with Apache Beam.
 
+Beametrics transfers structured messages from a queue into metrics in real-time. Primarily designed to work with Cloud Pub/Sub to export metrics to Cloud Monitoring.
+
 ## Usage
 
 ### Direct Runner
