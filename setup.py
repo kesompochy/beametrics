@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="beametrics",
-    version="0.1.7",
+    version="0.1.8",
     packages=find_packages(),
     install_requires=[
         "apache-beam[gcp]>=2.60.0",
