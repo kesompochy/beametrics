@@ -1,11 +1,14 @@
+import unittest
 from unittest.mock import MagicMock, patch
 
 import apache_beam as beam
 import pytest
 from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.options.value_provider import RuntimeValueProvider, StaticValueProvider
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
-from apache_beam.transforms.window import FixedWindows
+from apache_beam.transforms.window import FixedWindows, IntervalWindow, WindowFn
+from apache_beam.utils.timestamp import Timestamp
 
 from beametrics.filter import FilterCondition
 from beametrics.metrics import MetricDefinition, MetricType
@@ -13,7 +16,11 @@ from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
 )
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
+from beametrics.pipeline import (
+    DynamicFixedWindows,
+    PubsubToCloudMonitoringPipeline,
+    parse_json,
+)
 
 
 class TestMetricsExporter(beam.DoFn):
@@ -183,7 +190,7 @@ def test_fixed_window_size_validation():
         window_size=60,
     )
     transform = pipeline._get_window_transform()
-    assert isinstance(transform.windowing.windowfn, FixedWindows)
+    assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
     assert transform.windowing.windowfn.size == 60
 
     pipeline = PubsubToCloudMonitoringPipeline(
@@ -289,3 +296,44 @@ def test_deferred_metric_combiner_with_dict_input():
 
     acc = combiner.add_input(acc, 5)
     assert acc == 7
+
+
+class TestDynamicFixedWindows(unittest.TestCase):
+    def test_with_static_value_provider(self):
+        window_size = StaticValueProvider(int, 60)
+        windows = DynamicFixedWindows(window_size)
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        assigned = windows.assign(context)
+
+        self.assertEqual(len(assigned), 1)
+        window = assigned[0]
+        self.assertIsInstance(window, IntervalWindow)
+        self.assertEqual(window.end - window.start, 60)
+
+    def test_with_runtime_value_provider(self):
+        window_size = RuntimeValueProvider(
+            option_name="window_size", value_type=int, default_value=60
+        )
+        windows = DynamicFixedWindows(window_size)
+
+        RuntimeValueProvider.set_runtime_options({"window_size": 120})
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        assigned = windows.assign(context)
+
+        self.assertEqual(len(assigned), 1)
+        window = assigned[0]
+        self.assertIsInstance(window, IntervalWindow)
+        self.assertEqual(window.end - window.start, 120)
+
+    def test_invalid_window_size(self):
+        window_size = StaticValueProvider(int, 0)
+        windows = DynamicFixedWindows(window_size)
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        with self.assertRaises(ValueError):
+            windows.assign(context)
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        with self.assertRaises(ValueError):
+            windows.assign(context)

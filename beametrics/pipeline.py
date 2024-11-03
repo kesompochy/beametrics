@@ -1,7 +1,10 @@
 from typing import Any, Dict, List
 
 import apache_beam as beam
-from apache_beam.transforms.window import FixedWindows
+from apache_beam.coders import coders
+from apache_beam.options.value_provider import StaticValueProvider, ValueProvider
+from apache_beam.transforms.window import IntervalWindow, NonMergingWindowFn
+from apache_beam.utils.timestamp import Duration
 
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
@@ -11,9 +14,49 @@ from beametrics.metrics_exporter import (
 )
 
 
-class DynamicWindowIntoFn(FixedWindows):
-    def __init__(self, window_size):
-        super().__init__(window_size)
+class DynamicFixedWindows(NonMergingWindowFn):
+    """A windowing function that assigns each element to one time interval,
+    with a window size that can be determined at runtime.
+
+    Args:
+        window_size_provider: A ValueProvider that provides the size of the window in seconds.
+    """
+
+    def __init__(self, window_size_provider):
+        super().__init__()
+        if not isinstance(window_size_provider, ValueProvider):
+            raise ValueError("window_size_provider must be a ValueProvider")
+        self.window_size_provider = window_size_provider
+
+    def assign(self, context):
+        """Assigns windows to an element.
+
+        Args:
+            context: A WindowFn.AssignContext object.
+
+        Returns:
+            A list containing a single IntervalWindow.
+
+        Raises:
+            ValueError: If the window size is not positive.
+        """
+        window_size = self.window_size_provider.get()
+        if window_size <= 0:
+            raise ValueError("The window size must be strictly positive.")
+
+        timestamp = context.timestamp
+        size = Duration.of(window_size)
+        start = timestamp - (timestamp % size)
+        return [IntervalWindow(start, start + size)]
+
+    def get_window_coder(self):
+        """Returns the coder to use for windows."""
+        return coders.IntervalWindowCoder()
+
+    @property
+    def size(self):
+        """Get the window size."""
+        return self.window_size_provider.get()
 
 
 def parse_json(message: bytes) -> Dict[str, Any]:
@@ -83,11 +126,15 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
         self.filter = MessageFilter(filter_conditions)
         self.metrics_config = metrics_config
         self.metric_definition = metric_definition
-        self.window_size = window_size
+        self.window_size = (
+            window_size
+            if isinstance(window_size, ValueProvider)
+            else StaticValueProvider(int, window_size)
+        )
 
     def _get_window_transform(self):
         """Get the window transform with configured size"""
-        return beam.WindowInto(DynamicWindowIntoFn(self.window_size))
+        return beam.WindowInto(DynamicFixedWindows(self.window_size))
 
     def _get_combiner(self):
         """Get appropriate combiner based on metric type"""
@@ -153,7 +200,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
 
         return (
             values
-            | "Window" >> beam.WindowInto(FixedWindows(60))
+            | "Window" >> self._get_window_transform()
             | "AggregateMetrics"
             >> beam.CombineGlobally(self._get_combiner()).without_defaults()
             | "ExportMetrics"
