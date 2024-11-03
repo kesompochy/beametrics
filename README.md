@@ -52,7 +52,7 @@ $ cat flags.yaml
   subscription: projects/YOUR_PROJECT_ID/subscriptions/YOUR_SUBSCRIPTION
   export-metric-name: YOUR_METRIC_NAME
   metric-labels: '{"LABEL": "HOGE"}'
-  filter-conditions: '[{"field":"user_agent","value":"bigfoot_dummy_data","operator":"equals"}]'
+  filter-conditions: '[{"field":"user_agent","value":"dummy_data","operator":"equals"}]'
   metric-type: count
   window-size: "120"
 $ gcloud dataflow flex-template run "beametrics-job-$(date +%Y%m%d-%H%M%S)" \
