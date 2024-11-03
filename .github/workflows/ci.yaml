@@ -14,10 +14,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
@@ -28,7 +32,25 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --with dev
+
+      - name: Format
+        run: |
+          poetry run black .
+          poetry run isort . --profile black
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "🎨 Format code with black and isort"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
+
+      - name: Type check
+        run: poetry run mypy .
           
       - name: Run tests
         run: poetry run pytest

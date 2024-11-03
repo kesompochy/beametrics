@@ -1,17 +1,19 @@
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from beametrics.filter import FilterCondition
 from beametrics.main import (
+    BeametricsOptions,
+    create_metrics_config,
     parse_filter_conditions,
     run,
-    create_metrics_config,
-    BeametricsOptions,
 )
-from unittest.mock import patch, MagicMock
-from beametrics.filter import FilterCondition
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline
 from beametrics.metrics_exporter import (
-    GoogleCloudMetricsConfig,
     GoogleCloudConnectionConfig,
+    GoogleCloudMetricsConfig,
 )
-import pytest
+from beametrics.pipeline import PubsubToCloudMonitoringPipeline
 
 
 def test_parse_filter_conditions():

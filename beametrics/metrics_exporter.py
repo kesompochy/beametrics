@@ -1,12 +1,12 @@
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
-from typing import Protocol, Optional, Dict
-from google.cloud import monitoring_v3
-import time
-import apache_beam as beam
-from typing import Union
-from apache_beam.options.value_provider import ValueProvider
 import json
+import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Dict, Optional, Protocol, Union
+
+import apache_beam as beam
+from apache_beam.options.value_provider import ValueProvider
+from google.cloud import monitoring_v3
 
 
 class ConnectionConfig(Protocol):

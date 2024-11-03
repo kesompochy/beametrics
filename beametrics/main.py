@@ -1,26 +1,22 @@
-import apache_beam as beam
-from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.io.gcp.pubsub import ReadFromPubSub
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline
-from beametrics.filter import FilterCondition
-from beametrics.metrics import MetricType, MetricDefinition
-from beametrics.metrics_exporter import (
-    GoogleCloudMetricsConfig,
-    GoogleCloudConnectionConfig,
-)
 import json
-import argparse
-from beametrics.pipeline_factory import (
-    GoogleCloudPipelineFactory,
-    DataflowPipelineConfig,
-)
+from typing import List
+
+import apache_beam as beam
 from apache_beam import Pipeline
-from enum import Enum
-from typing import Dict, Optional, List
-from apache_beam.options.pipeline_options import StandardOptions
-from apache_beam.options.value_provider import ValueProvider
-import inspect
-from apache_beam.options.pipeline_options import GoogleCloudOptions
+from apache_beam.io.gcp.pubsub import ReadFromPubSub
+from apache_beam.options.pipeline_options import (
+    GoogleCloudOptions,
+    PipelineOptions,
+    StandardOptions,
+)
+
+from beametrics.filter import FilterCondition
+from beametrics.metrics import MetricDefinition, MetricType
+from beametrics.metrics_exporter import (
+    GoogleCloudConnectionConfig,
+    GoogleCloudMetricsConfig,
+)
+from beametrics.pipeline import PubsubToCloudMonitoringPipeline
 
 
 class BeametricsOptions(PipelineOptions):
@@ -230,6 +226,10 @@ def main():
     """Main entry point."""
     pipeline_options = BeametricsOptions()
     run(pipeline_options)
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":

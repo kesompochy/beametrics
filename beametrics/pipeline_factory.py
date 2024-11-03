@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam import Pipeline
-from typing import Optional
 from dataclasses import dataclass
-from enum import Enum, auto
-from typing import List
+from enum import Enum
+from typing import Optional
+
+from apache_beam import Pipeline
+from apache_beam.options.pipeline_options import PipelineOptions
 
 
 class TemplateType(Enum):

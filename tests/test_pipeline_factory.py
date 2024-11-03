@@ -1,12 +1,13 @@
 import pytest
-from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam import Pipeline
-from beametrics.pipeline_factory import (
-    GoogleCloudPipelineFactory,
-    DataflowPipelineConfig,
-)
-from beametrics.pipeline_factory import TemplateType
+from apache_beam.options.pipeline_options import PipelineOptions
+
 from beametrics.main import BeametricsOptions
+from beametrics.pipeline_factory import (
+    DataflowPipelineConfig,
+    GoogleCloudPipelineFactory,
+    TemplateType,
+)
 
 
 def test_google_cloud_pipeline_factory():
@@ -87,4 +88,5 @@ def test_dataflow_pipeline_config_defaults():
 def test_google_cloud_pipeline_factory_requires_all_parameters():
     """Test GoogleCloudPipelineFactory constructor requires all parameters"""
     with pytest.raises(TypeError):
+        GoogleCloudPipelineFactory(project_id="test-project")
         GoogleCloudPipelineFactory(project_id="test-project")

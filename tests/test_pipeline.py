@@ -1,17 +1,19 @@
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
-from beametrics.filter import FilterCondition
-from beametrics.metrics_exporter import (
-    GoogleCloudMetricsConfig,
-    GoogleCloudConnectionConfig,
-)
 from unittest.mock import MagicMock, patch
-from beametrics.metrics import MetricType, MetricDefinition
-from apache_beam.testing.test_pipeline import TestPipeline
-from apache_beam.testing.util import assert_that, equal_to
+
 import apache_beam as beam
 import pytest
 from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.testing.test_pipeline import TestPipeline
+from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.transforms.window import FixedWindows
+
+from beametrics.filter import FilterCondition
+from beametrics.metrics import MetricDefinition, MetricType
+from beametrics.metrics_exporter import (
+    GoogleCloudConnectionConfig,
+    GoogleCloudMetricsConfig,
+)
+from beametrics.pipeline import PubsubToCloudMonitoringPipeline, parse_json
 
 
 class TestMetricsExporter(beam.DoFn):

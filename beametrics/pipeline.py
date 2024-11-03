@@ -1,14 +1,14 @@
+from typing import Any, Dict, List
+
 import apache_beam as beam
-from apache_beam.transforms.window import FixedWindows, TimestampedValue, IntervalWindow
-from typing import Dict, Any, List
+from apache_beam.transforms.window import FixedWindows
+
 from beametrics.filter import FilterCondition, MessageFilter
-from beametrics.metrics import MetricType, MetricDefinition
+from beametrics.metrics import MetricDefinition, MetricType
 from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
 )
-from apache_beam.transforms.core import WindowIntoFn
-from apache_beam.coders.coders import GlobalWindowCoder
 
 
 class DynamicWindowIntoFn(FixedWindows):
@@ -117,17 +117,14 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
                     type_str = self.metric_type.value.upper()
 
                 return (
-                    accumulator
-                    if type_str == "COUNT"
-                    else accumulator / len(accumulators)
-                )
+                    accumulator if type_str == "COUNT" else accumulator
+                )  # TODO: Implements for types other than COUNT
 
         return DeferredMetricCombiner(metric_type)
 
     def expand(self, pcoll):
         filtered = (
             pcoll
-            # | "Window" >> self._get_window_transform()
             | "DecodeAndParse" >> beam.ParDo(DecodeAndParse())
             | "FilterMessages" >> beam.Filter(self.filter.matches)
         )
