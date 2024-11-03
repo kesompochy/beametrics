@@ -32,3 +32,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 beametrics = "beametrics.main:main"
+
+[tool.mypy]
+exclude = [
+    "setup\\.py$"
+]
