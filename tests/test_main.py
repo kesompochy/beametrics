@@ -42,7 +42,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
             "--project=test-project",
             "--region=us-central1",
             "--temp_location=gs://test-bucket/temp",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -67,7 +67,7 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
         [
             "--runner=DirectRunner",
             "--project=test-project",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -97,7 +97,7 @@ def test_run_with_unsupported_runner(mock_pipeline):
                 "--project=test-project",
                 "--region=us-central1",
                 "--temp_location=gs://test-bucket/temp",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -119,7 +119,7 @@ def test_run_with_unsupported_export_type(mock_pipeline):
                 "--project=test-project",
                 "--region=us-central1",
                 "--temp_location=gs://test-bucket/temp",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -134,7 +134,7 @@ def test_run_with_unsupported_export_type(mock_pipeline):
 def test_create_metrics_config_for_monitoring():
     """Test metrics config creation for Cloud Monitoring"""
     config = create_metrics_config(
-        export_metric_name="test-metric",
+        metric_name="test-metric",
         metric_labels={"service": "test-service"},
         project_id="test-project",
         export_type="monitoring",
@@ -157,7 +157,7 @@ def test_run_with_sum_metric(mock_pipeline):
         [
             "--runner=DirectRunner",
             "--project=test-project",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -181,7 +181,7 @@ def test_run_with_invalid_metric_type(mock_pipeline):
             [
                 "--runner=DirectRunner",
                 "--project=test-project",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -202,7 +202,7 @@ def test_run_without_required_field(mock_pipeline):
             [
                 "--runner=DirectRunner",
                 "--project=test-project",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -227,7 +227,7 @@ def test_run_with_flex_template(mock_pipeline):
             "--project=test-project",
             "--region=us-central1",
             "--temp_location=gs://test-bucket/temp",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',

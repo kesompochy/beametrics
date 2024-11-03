@@ -99,7 +99,7 @@ def test_count_metric_aggregation(mock_export):
     with TestPipeline(
         options=PipelineOptions(
             [
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-sub",
                 '--metric-labels={"service": "test"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
@@ -129,7 +129,7 @@ def test_sum_metric_aggregation(mock_export):
     with TestPipeline(
         options=PipelineOptions(
             [
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-sub",
                 '--metric-labels={"service": "test"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',

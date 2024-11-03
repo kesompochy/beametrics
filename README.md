@@ -12,7 +12,7 @@ Beametrics transfers structured messages from a queue into metrics in real-time.
 $ python -m beametrics.main \
   --project=YOUR_PROJECT_ID \
   --subscription=projects/YOUR_PROJECT_ID/subscriptions/YOUR_SUBSCRIPTION \
-  --export-metric-name=YOUR_METRIC_NAME \
+  --metric-name=YOUR_METRIC_NAME \
   --metric-labels='{"LABEL": "HOGE"}' \
   --filter-conditions='[{"field": "user_agent", "value": "dummy_data", "operator": "equals"}]' \
   --runner=DirectRunner \
@@ -50,7 +50,7 @@ $ cat flags.yaml
 --parameters:
   project-id: YOUR_PROJECT_ID
   subscription: projects/YOUR_PROJECT_ID/subscriptions/YOUR_SUBSCRIPTION
-  export-metric-name: YOUR_METRIC_NAME
+  metric-name: YOUR_METRIC_NAME
   metric-labels: '{"LABEL": "HOGE"}'
   filter-conditions: '[{"field":"user_agent","value":"dummy_data","operator":"equals"}]'
   metric-type: count

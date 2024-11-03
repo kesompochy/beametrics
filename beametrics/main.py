@@ -30,7 +30,7 @@ class BeametricsOptions(PipelineOptions):
 
         # Required parameters
         parser.add_value_provider_argument(
-            "--export-metric-name",
+            "--metric-name",
             type=str,
             required=True,
             help="Name of the metric to create",
@@ -137,7 +137,7 @@ def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
 
 
 def create_metrics_config(
-    export_metric_name: str,
+    metric_name: str,
     metric_labels: dict,
     project_id: str,
     export_type: str,
@@ -166,7 +166,7 @@ def create_metrics_config(
         raise ValueError(f"Unsupported export type: {export_type}")
 
     return GoogleCloudMetricsConfig(
-        metric_name=f"custom.googleapis.com/{export_metric_name}",
+        metric_name=f"custom.googleapis.com/{metric_name}",
         metric_labels=metric_labels,
         connection_config=GoogleCloudConnectionConfig(project_id=project_id),
     )
@@ -180,7 +180,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
 
     google_cloud_options = pipeline_options.view_as(GoogleCloudOptions)
     project_id = google_cloud_options.project
-    export_metric_name = options.export_metric_name
+    metric_name = options.metric_name
     metric_labels = options.metric_labels
     filter_conditions = options.filter_conditions
     metric_type = options.metric_type
@@ -192,7 +192,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
     subscription = options.subscription.get()
 
     metrics_config = create_metrics_config(
-        export_metric_name=export_metric_name,
+        metric_name=metric_name,
         metric_labels=metric_labels,
         project_id=project_id,
         export_type=export_type,
@@ -204,7 +204,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
         raise ValueError(f"Unsupported metric type: {metric_type.get()}")
 
     metric_definition = MetricDefinition(
-        name=export_metric_name,
+        name=metric_name,
         type=metric_type_enum,
         field=metric_field,
         metric_labels=metric_labels,
