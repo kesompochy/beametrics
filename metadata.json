@@ -64,7 +64,7 @@
       "label": "Window size",
       "helpText": "Window size in seconds",
       "isOptional": true,
-      "defaultValue": "120"
+      "defaultValue": "60"
     },
     {
       "name": "dataflow-template-type",
