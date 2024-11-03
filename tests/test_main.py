@@ -46,7 +46,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
             "--metric-type=count",
         ]
     )
@@ -71,7 +71,7 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
         ]
     )
 
@@ -101,7 +101,7 @@ def test_run_with_unsupported_runner(mock_pipeline):
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-                "--export-type=monitoring",
+                "--export-type=google-cloud-monitoring",
             ]
         )
         run(options)
@@ -163,7 +163,7 @@ def test_run_with_sum_metric(mock_pipeline):
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
             "--metric-type=sum",
             "--metric-field=response_time",
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
         ]
     )
 
@@ -186,7 +186,7 @@ def test_run_with_invalid_metric_type(mock_pipeline):
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
                 "--metric-type=invalid_type",
-                "--export-type=monitoring",
+                "--export-type=google-cloud-monitoring",
             ]
         )
         run(options)
@@ -207,7 +207,7 @@ def test_run_without_required_field(mock_pipeline):
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
                 "--metric-type=sum",
-                "--export-type=monitoring",
+                "--export-type=google-cloud-monitoring",
             ]
         )
         run(options)
@@ -231,7 +231,7 @@ def test_run_with_flex_template(mock_pipeline):
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
             "--dataflow_template_type=flex",
             "--metrics-type=count",
         ]
