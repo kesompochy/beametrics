@@ -18,7 +18,7 @@ from beametrics.metrics_exporter import (
 )
 from beametrics.pipeline import (
     DynamicFixedWindows,
-    PubsubToCloudMonitoringPipeline,
+    MessagesToMetricsPipeline,
     parse_json,
 )
 
@@ -44,7 +44,7 @@ def test_parse_json():
 
 
 def test_beametrics_pipeline_structure():
-    """Test PubsubToMetricsPipeline basic structure"""
+    """Test MessagesToMetricsPipeline basic structure"""
     filter_condition = FilterCondition(
         field="severity", value="ERROR", operator="equals"
     )
@@ -78,7 +78,7 @@ def test_beametrics_pipeline_structure():
         mock_pardo_result.__or__.return_value = mock_filter_result
 
         # Act
-        pipeline = PubsubToCloudMonitoringPipeline(
+        pipeline = MessagesToMetricsPipeline(
             filter_condition, metrics_config, metric_definition, window_size=60
         )
         pipeline.expand(mock_pcoll)
@@ -89,7 +89,7 @@ def test_beametrics_pipeline_structure():
         assert mock_filter.called
 
 
-@patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
+@patch("beametrics.pipeline.ExportMetrics")
 def test_count_metric_aggregation(mock_export):
     """Test COUNT metric aggregation"""
     with TestPipeline(
@@ -119,7 +119,7 @@ def test_count_metric_aggregation(mock_export):
         assert_that(result, equal_to([2]))
 
 
-@patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
+@patch("beametrics.pipeline.ExportMetrics")
 def test_sum_metric_aggregation(mock_export):
     """Test SUM metric aggregation"""
     with TestPipeline(
@@ -183,7 +183,7 @@ class MockMetricDefinition(MetricDefinition):
 
 def test_fixed_window_size_validation():
     """Test fixed window size validation"""
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
@@ -193,7 +193,7 @@ def test_fixed_window_size_validation():
     assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
     assert transform.windowing.windowfn.size == 60
 
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
@@ -229,7 +229,7 @@ def test_beametrics_pipeline_with_runtime_value_provider():
     ) as mock_filter, patch("apache_beam.WindowInto") as mock_window:
 
         mock_pcoll = MagicMock()
-        pipeline = PubsubToCloudMonitoringPipeline(
+        pipeline = MessagesToMetricsPipeline(
             filter_condition, metrics_config, metric_definition, window_size=60
         )
         pipeline.expand(mock_pcoll)
@@ -256,7 +256,7 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
         metric_labels={"service": "test"},
     )
 
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
@@ -277,7 +277,7 @@ def test_deferred_metric_combiner_with_dict_input():
         metric_labels={"service": "test"},
     )
 
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,

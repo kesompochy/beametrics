@@ -118,7 +118,7 @@ class GoogleCloudMetricsExporter(MetricsExporter):
             raise
 
 
-class ExportMetricsToCloudMonitoring(beam.DoFn):
+class ExportMetrics(beam.DoFn):
     def __init__(self, metrics_config: GoogleCloudMetricsConfig):
         self.metrics_config = metrics_config
         self.exporter = None

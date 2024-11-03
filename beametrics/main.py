@@ -16,7 +16,7 @@ from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
 )
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline
+from beametrics.pipeline import MessagesToMetricsPipeline
 
 
 class BeametricsOptions(PipelineOptions):
@@ -215,7 +215,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
             p
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
-            >> PubsubToCloudMonitoringPipeline(
+            >> MessagesToMetricsPipeline(
                 filter_conditions=parse_filter_conditions(filter_conditions.get()),
                 metrics_config=metrics_config,
                 metric_definition=metric_definition,

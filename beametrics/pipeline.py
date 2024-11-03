@@ -73,7 +73,7 @@ class DecodeAndParse(beam.DoFn):
         return [parse_json(element)]
 
 
-class ExportMetricsToCloudMonitoring(beam.DoFn):
+class ExportMetrics(beam.DoFn):
     """Export metrics to Cloud Monitoring"""
 
     def __init__(self, metrics_config: GoogleCloudMetricsConfig):
@@ -100,7 +100,7 @@ class ExtractField(beam.DoFn):
             yield float(value)
 
 
-class PubsubToCloudMonitoringPipeline(beam.PTransform):
+class MessagesToMetricsPipeline(beam.PTransform):
     """Transform PubSub messages to Cloud Monitoring metrics"""
 
     def __init__(
@@ -203,6 +203,5 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
             | "Window" >> self._get_window_transform()
             | "AggregateMetrics"
             >> beam.CombineGlobally(self._get_combiner()).without_defaults()
-            | "ExportMetrics"
-            >> beam.ParDo(ExportMetricsToCloudMonitoring(self.metrics_config))
+            | "ExportMetrics" >> beam.ParDo(ExportMetrics(self.metrics_config))
         )

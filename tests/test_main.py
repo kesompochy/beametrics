@@ -13,7 +13,7 @@ from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
 )
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline
+from beametrics.pipeline import MessagesToMetricsPipeline
 
 
 def test_parse_filter_conditions():
@@ -54,7 +54,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
     run(options)
 
     mock_pipeline.assert_called_once()
-    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
 
 
 @patch("beametrics.main.Pipeline")
@@ -84,7 +84,7 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
         RuntimeValueProvider.set_runtime_options(None)
 
     mock_pipeline.assert_called_once()
-    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
 
 
 @patch("beametrics.main.Pipeline")
@@ -170,7 +170,7 @@ def test_run_with_sum_metric(mock_pipeline):
     run(options)
 
     mock_pipeline.assert_called_once()
-    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
 
 
 @patch("beametrics.main.Pipeline")
