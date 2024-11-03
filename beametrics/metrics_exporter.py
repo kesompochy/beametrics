@@ -114,6 +114,8 @@ class GoogleCloudMetricsExporter(MetricsExporter):
             self.client.create_time_series(request=request)
         except google_exceptions.InvalidArgument as e:
             pass
+        except Exception:
+            raise
 
 
 class ExportMetricsToCloudMonitoring(beam.DoFn):
