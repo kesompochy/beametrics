@@ -29,6 +29,20 @@ jobs:
           
       - name: Install dependencies
         run: poetry install
+
+      - name: Format
+        run: |
+          poetry run black .
+          poetry run isort . --profile black
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git diff --quiet || (git add . && git commit -m "🎨 Format code with black and isort" && git push)
+
+      - name: Type check
+        run: poetry run mypy .
           
       - name: Run tests
         run: poetry run pytest
