@@ -39,7 +39,11 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git diff --quiet || (git add . && git commit -m "🎨 Format code with black and isort" && git push)
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "🎨 Format code with black and isort"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
 
       - name: Type check
         run: poetry run mypy .
