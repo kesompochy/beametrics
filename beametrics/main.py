@@ -181,13 +181,15 @@ def run(pipeline_options: BeametricsOptions) -> None:
     google_cloud_options = pipeline_options.view_as(GoogleCloudOptions)
     project_id = google_cloud_options.project
     export_metric_name = options.export_metric_name
-    subscription = options.subscription.get()
     metric_labels = options.metric_labels
     filter_conditions = options.filter_conditions
     metric_type = options.metric_type
     metric_field = getattr(options, "metric_field", None)
     window_size = options.window_size
     export_type = options.export_type
+
+    # Must be str or None as arg for ReadFromPubSub with DataflowRunner, not ValueProvider
+    subscription = options.subscription.get()
 
     metrics_config = create_metrics_config(
         export_metric_name=export_metric_name,
