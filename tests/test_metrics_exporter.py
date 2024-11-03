@@ -1,9 +1,10 @@
+from unittest.mock import patch
+
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
 )
-from unittest.mock import patch
 
 
 def test_google_cloud_connection_config():
@@ -70,4 +71,5 @@ def test_google_cloud_metrics_exporter_parameters():
         assert time_series.metric.labels == config.metric_labels
         assert time_series.resource.type == "global"
         assert time_series.points[0].value.double_value == 1.0
+        assert time_series.points[0].interval.end_time.timestamp() > 0
         assert time_series.points[0].interval.end_time.timestamp() > 0

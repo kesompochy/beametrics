@@ -1,5 +1,6 @@
 import pytest
-from beametrics.metrics import MetricType, MetricDefinition
+
+from beametrics.metrics import MetricDefinition, MetricType
 
 
 def test_metric_type_values():
@@ -32,4 +33,5 @@ def test_metric_definition_requires_field_for_non_count():
             field=None,
             metric_labels={"service": "test"},
         )
+    assert "field is required for sum metric type" == str(exc_info.value)
     assert "field is required for sum metric type" == str(exc_info.value)

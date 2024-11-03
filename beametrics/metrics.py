@@ -1,6 +1,6 @@
-from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, Dict
+from enum import Enum
+from typing import Dict, Optional
 
 
 class MetricType(Enum):
