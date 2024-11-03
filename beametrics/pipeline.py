@@ -42,6 +42,12 @@ class DynamicFixedWindows(NonMergingWindowFn):
             ValueError: If the window size is not positive.
         """
         window_size = self.window_size_provider.get()
+
+        try:
+            window_size = int(window_size)
+        except (TypeError, ValueError):
+            raise ValueError("Window size must be an integer")
+
         if window_size <= 0:
             raise ValueError("The window size must be strictly positive.")
 

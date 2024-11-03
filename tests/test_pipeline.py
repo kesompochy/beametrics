@@ -349,3 +349,24 @@ class TestDynamicFixedWindows(unittest.TestCase):
         context = WindowFn.AssignContext(Timestamp(1234567890))
         with self.assertRaises(ValueError):
             windows.assign(context)
+
+    def test_non_integer_window_size(self):
+        window_size = StaticValueProvider(str, "not_a_number")
+        windows = DynamicFixedWindows(window_size)
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        with self.assertRaises(ValueError) as cm:
+            windows.assign(context)
+        self.assertEqual(str(cm.exception), "Window size must be an integer")
+
+    def test_string_integer_window_size(self):
+        window_size = StaticValueProvider(str, "60")
+        windows = DynamicFixedWindows(window_size)
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        assigned = windows.assign(context)
+
+        self.assertEqual(len(assigned), 1)
+        window = assigned[0]
+        self.assertIsInstance(window, IntervalWindow)
+        self.assertEqual(window.end - window.start, 60)
