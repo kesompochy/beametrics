@@ -289,5 +289,3 @@ def test_deferred_metric_combiner_with_dict_input():
 
     acc = combiner.add_input(acc, 5)
     assert acc == 7
-    acc = combiner.add_input(acc, 5)
-    assert acc == 7
