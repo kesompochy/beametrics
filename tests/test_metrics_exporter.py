@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -16,8 +16,13 @@ def test_create_exporter_monitoring():
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
-    exporter = MetricsExporterFactory.create_exporter("google-cloud-monitoring", config)
-    assert exporter.__class__.__name__ == "GoogleCloudMetricsExporter"
+
+    with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
+        mock_client.return_value = Mock()
+        exporter = MetricsExporterFactory.create_exporter(
+            "google-cloud-monitoring", config
+        )
+        assert exporter.__class__.__name__ == "GoogleCloudMetricsExporter"
 
 
 def test_create_exporter_invalid_type():
