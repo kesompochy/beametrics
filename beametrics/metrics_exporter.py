@@ -7,6 +7,7 @@ from typing import Dict, Optional, Protocol, Union
 import apache_beam as beam
 from apache_beam.options.value_provider import ValueProvider
 from google.cloud import monitoring_v3
+from google.api_core import exceptions as google_exceptions
 
 
 class ConnectionConfig(Protocol):
@@ -109,7 +110,10 @@ class GoogleCloudMetricsExporter(MetricsExporter):
             time_series=[series],
         )
 
-        self.client.create_time_series(request=request)
+        try:
+            self.client.create_time_series(request=request)
+        except google_exceptions.InvalidArgument as e:
+            pass
 
 
 class ExportMetricsToCloudMonitoring(beam.DoFn):
