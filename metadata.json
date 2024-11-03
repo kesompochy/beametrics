@@ -13,7 +13,7 @@
       "helpText": "Full path to Pub/Sub subscription"
     },
     {
-      "name": "export-metric-name",
+      "name": "metric-name",
       "label": "Metric name",
       "helpText": "Name of the metric to export"
     },
@@ -44,7 +44,7 @@
       "label": "Export type",
       "helpText": "Type of export destination",
       "isOptional": true,
-      "defaultValue": "monitoring"
+      "defaultValue": "google-cloud-monitoring"
     },
     {
       "name": "metric-type",

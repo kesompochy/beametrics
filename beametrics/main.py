@@ -16,7 +16,7 @@ from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
 )
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline
+from beametrics.pipeline import MessagesToMetricsPipeline
 
 
 class BeametricsOptions(PipelineOptions):
@@ -30,7 +30,7 @@ class BeametricsOptions(PipelineOptions):
 
         # Required parameters
         parser.add_value_provider_argument(
-            "--export-metric-name",
+            "--metric-name",
             type=str,
             required=True,
             help="Name of the metric to create",
@@ -70,7 +70,7 @@ class BeametricsOptions(PipelineOptions):
         parser.add_value_provider_argument(
             "--export-type",
             type=str,
-            default="monitoring",
+            default="google-cloud-monitoring",
             help="Type of export destination",
         )
         parser.add_value_provider_argument(
@@ -89,9 +89,9 @@ class BeametricsOptions(PipelineOptions):
             if isinstance(export_type, beam.options.value_provider.StaticValueProvider):
                 export_type = export_type.value
             else:
-                export_type = "monitoring"
+                export_type = "google-cloud-monitoring"
 
-        if export_type != "monitoring":
+        if export_type != "google-cloud-monitoring":
             raise ValueError(f"Unsupported export type: {export_type}")
 
         metric_type = self.metric_type
@@ -137,7 +137,7 @@ def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
 
 
 def create_metrics_config(
-    export_metric_name: str,
+    metric_name: str,
     metric_labels: dict,
     project_id: str,
     export_type: str,
@@ -148,7 +148,7 @@ def create_metrics_config(
         metric_name: Name of the metric
         metric_labels: Dictionary of labels to attach to the metric
         project_id: GCP project ID
-        export_type: Type of export destination ("monitoring", etc)
+        export_type: Type of export destination ("google-cloud-monitoring", etc)
 
     Returns:
         GoogleCloudMetricsConfig: Configuration for the specified export type
@@ -160,13 +160,13 @@ def create_metrics_config(
         if isinstance(export_type, beam.options.value_provider.StaticValueProvider):
             export_type = export_type.value
         else:
-            export_type = "monitoring"
+            export_type = "google-cloud-monitoring"
 
-    if export_type != "monitoring":
+    if export_type != "google-cloud-monitoring":
         raise ValueError(f"Unsupported export type: {export_type}")
 
     return GoogleCloudMetricsConfig(
-        metric_name=f"custom.googleapis.com/{export_metric_name}",
+        metric_name=f"custom.googleapis.com/{metric_name}",
         metric_labels=metric_labels,
         connection_config=GoogleCloudConnectionConfig(project_id=project_id),
     )
@@ -180,7 +180,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
 
     google_cloud_options = pipeline_options.view_as(GoogleCloudOptions)
     project_id = google_cloud_options.project
-    export_metric_name = options.export_metric_name
+    metric_name = options.metric_name
     metric_labels = options.metric_labels
     filter_conditions = options.filter_conditions
     metric_type = options.metric_type
@@ -192,7 +192,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
     subscription = options.subscription.get()
 
     metrics_config = create_metrics_config(
-        export_metric_name=export_metric_name,
+        metric_name=metric_name,
         metric_labels=metric_labels,
         project_id=project_id,
         export_type=export_type,
@@ -204,7 +204,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
         raise ValueError(f"Unsupported metric type: {metric_type.get()}")
 
     metric_definition = MetricDefinition(
-        name=export_metric_name,
+        name=metric_name,
         type=metric_type_enum,
         field=metric_field,
         metric_labels=metric_labels,
@@ -215,11 +215,12 @@ def run(pipeline_options: BeametricsOptions) -> None:
             p
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
-            >> PubsubToCloudMonitoringPipeline(
+            >> MessagesToMetricsPipeline(
                 filter_conditions=parse_filter_conditions(filter_conditions.get()),
                 metrics_config=metrics_config,
                 metric_definition=metric_definition,
                 window_size=window_size,
+                export_type=export_type,
             )
         )
 

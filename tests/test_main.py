@@ -13,7 +13,7 @@ from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
 )
-from beametrics.pipeline import PubsubToCloudMonitoringPipeline
+from beametrics.pipeline import MessagesToMetricsPipeline
 
 
 def test_parse_filter_conditions():
@@ -42,11 +42,11 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
             "--project=test-project",
             "--region=us-central1",
             "--temp_location=gs://test-bucket/temp",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
             "--metric-type=count",
         ]
     )
@@ -54,7 +54,7 @@ def test_run_with_dataflow_and_monitoring(mock_metrics_client, mock_pipeline):
     run(options)
 
     mock_pipeline.assert_called_once()
-    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
 
 
 @patch("beametrics.main.Pipeline")
@@ -67,11 +67,11 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
         [
             "--runner=DirectRunner",
             "--project=test-project",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
         ]
     )
 
@@ -84,7 +84,7 @@ def test_run_with_direct_and_monitoring(mock_pipeline):
         RuntimeValueProvider.set_runtime_options(None)
 
     mock_pipeline.assert_called_once()
-    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
 
 
 @patch("beametrics.main.Pipeline")
@@ -97,11 +97,11 @@ def test_run_with_unsupported_runner(mock_pipeline):
                 "--project=test-project",
                 "--region=us-central1",
                 "--temp_location=gs://test-bucket/temp",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-                "--export-type=monitoring",
+                "--export-type=google-cloud-monitoring",
             ]
         )
         run(options)
@@ -119,7 +119,7 @@ def test_run_with_unsupported_export_type(mock_pipeline):
                 "--project=test-project",
                 "--region=us-central1",
                 "--temp_location=gs://test-bucket/temp",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
@@ -134,10 +134,10 @@ def test_run_with_unsupported_export_type(mock_pipeline):
 def test_create_metrics_config_for_monitoring():
     """Test metrics config creation for Cloud Monitoring"""
     config = create_metrics_config(
-        export_metric_name="test-metric",
+        metric_name="test-metric",
         metric_labels={"service": "test-service"},
         project_id="test-project",
-        export_type="monitoring",
+        export_type="google-cloud-monitoring",
     )
 
     assert isinstance(config, GoogleCloudMetricsConfig)
@@ -157,20 +157,20 @@ def test_run_with_sum_metric(mock_pipeline):
         [
             "--runner=DirectRunner",
             "--project=test-project",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
             "--metric-type=sum",
             "--metric-field=response_time",
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
         ]
     )
 
     run(options)
 
     mock_pipeline.assert_called_once()
-    mock_pipeline_instance | MagicMock(spec=PubsubToCloudMonitoringPipeline)
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
 
 
 @patch("beametrics.main.Pipeline")
@@ -181,12 +181,12 @@ def test_run_with_invalid_metric_type(mock_pipeline):
             [
                 "--runner=DirectRunner",
                 "--project=test-project",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
                 "--metric-type=invalid_type",
-                "--export-type=monitoring",
+                "--export-type=google-cloud-monitoring",
             ]
         )
         run(options)
@@ -202,12 +202,12 @@ def test_run_without_required_field(mock_pipeline):
             [
                 "--runner=DirectRunner",
                 "--project=test-project",
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-subscription",
                 '--metric-labels={"service": "test-service"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
                 "--metric-type=sum",
-                "--export-type=monitoring",
+                "--export-type=google-cloud-monitoring",
             ]
         )
         run(options)
@@ -227,11 +227,11 @@ def test_run_with_flex_template(mock_pipeline):
             "--project=test-project",
             "--region=us-central1",
             "--temp_location=gs://test-bucket/temp",
-            "--export-metric-name=test-metric",
+            "--metric-name=test-metric",
             "--subscription=projects/test-project/subscriptions/test-subscription",
             '--metric-labels={"service": "test-service"}',
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
-            "--export-type=monitoring",
+            "--export-type=google-cloud-monitoring",
             "--dataflow_template_type=flex",
             "--metrics-type=count",
         ]

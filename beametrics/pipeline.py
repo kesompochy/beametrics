@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import apache_beam as beam
 from apache_beam.coders import coders
@@ -9,6 +9,7 @@ from apache_beam.utils.timestamp import Duration
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
 from beametrics.metrics_exporter import (
+    ExportMetrics,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
 )
@@ -41,6 +42,12 @@ class DynamicFixedWindows(NonMergingWindowFn):
             ValueError: If the window size is not positive.
         """
         window_size = self.window_size_provider.get()
+
+        try:
+            window_size = int(window_size)
+        except (TypeError, ValueError):
+            raise ValueError("Window size must be an integer")
+
         if window_size <= 0:
             raise ValueError("The window size must be strictly positive.")
 
@@ -73,21 +80,6 @@ class DecodeAndParse(beam.DoFn):
         return [parse_json(element)]
 
 
-class ExportMetricsToCloudMonitoring(beam.DoFn):
-    """Export metrics to Cloud Monitoring"""
-
-    def __init__(self, metrics_config: GoogleCloudMetricsConfig):
-        self.metrics_config = metrics_config
-        self.exporter = None
-
-    def setup(self):
-        self.exporter = GoogleCloudMetricsExporter(self.metrics_config)
-
-    def process(self, count):
-        self.exporter.export(float(count))
-        yield count
-
-
 class ExtractField(beam.DoFn):
     """Extract field value from message for aggregation"""
 
@@ -100,7 +92,7 @@ class ExtractField(beam.DoFn):
             yield float(value)
 
 
-class PubsubToCloudMonitoringPipeline(beam.PTransform):
+class MessagesToMetricsPipeline(beam.PTransform):
     """Transform PubSub messages to Cloud Monitoring metrics"""
 
     def __init__(
@@ -109,6 +101,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
         metrics_config: GoogleCloudMetricsConfig,
         metric_definition: MetricDefinition,
         window_size: beam.options.value_provider.ValueProvider,
+        export_type: Union[str, ValueProvider],
     ):
         """Initialize the pipeline transform
 
@@ -131,6 +124,7 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
             if isinstance(window_size, ValueProvider)
             else StaticValueProvider(int, window_size)
         )
+        self.export_type = export_type
 
     def _get_window_transform(self):
         """Get the window transform with configured size"""
@@ -204,5 +198,5 @@ class PubsubToCloudMonitoringPipeline(beam.PTransform):
             | "AggregateMetrics"
             >> beam.CombineGlobally(self._get_combiner()).without_defaults()
             | "ExportMetrics"
-            >> beam.ParDo(ExportMetricsToCloudMonitoring(self.metrics_config))
+            >> beam.ParDo(ExportMetrics(self.metrics_config, self.export_type))
         )

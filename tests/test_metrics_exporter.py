@@ -1,10 +1,44 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import pytest
 
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
+    MetricsExporterFactory,
 )
+
+
+def test_create_exporter_monitoring():
+    config = GoogleCloudMetricsConfig(
+        metric_name="custom.googleapis.com/test",
+        metric_labels={},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+
+    with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
+        mock_client.return_value = Mock()
+        exporter = MetricsExporterFactory.create_exporter(
+            "google-cloud-monitoring", config
+        )
+        assert exporter.__class__.__name__ == "GoogleCloudMetricsExporter"
+
+
+def test_create_exporter_invalid_type():
+    config = GoogleCloudMetricsConfig(
+        metric_name="custom.googleapis.com/test",
+        metric_labels={},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+    with pytest.raises(ValueError, match="Unsupported export type: invalid"):
+        MetricsExporterFactory.create_exporter("invalid", config)
+
+
+def test_create_exporter_invalid_config():
+    config = "invalid_config"
+    with pytest.raises(ValueError, match="Invalid config type for monitoring exporter"):
+        MetricsExporterFactory.create_exporter("google-cloud-monitoring", config)
 
 
 def test_google_cloud_connection_config():

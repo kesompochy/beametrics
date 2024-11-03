@@ -18,7 +18,7 @@ from beametrics.metrics_exporter import (
 )
 from beametrics.pipeline import (
     DynamicFixedWindows,
-    PubsubToCloudMonitoringPipeline,
+    MessagesToMetricsPipeline,
     parse_json,
 )
 
@@ -44,7 +44,7 @@ def test_parse_json():
 
 
 def test_beametrics_pipeline_structure():
-    """Test PubsubToMetricsPipeline basic structure"""
+    """Test MessagesToMetricsPipeline basic structure"""
     filter_condition = FilterCondition(
         field="severity", value="ERROR", operator="equals"
     )
@@ -78,8 +78,12 @@ def test_beametrics_pipeline_structure():
         mock_pardo_result.__or__.return_value = mock_filter_result
 
         # Act
-        pipeline = PubsubToCloudMonitoringPipeline(
-            filter_condition, metrics_config, metric_definition, window_size=60
+        pipeline = MessagesToMetricsPipeline(
+            filter_condition,
+            metrics_config,
+            metric_definition,
+            window_size=60,
+            export_type="google-cloud-monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -89,13 +93,13 @@ def test_beametrics_pipeline_structure():
         assert mock_filter.called
 
 
-@patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
+@patch("beametrics.metrics_exporter.ExportMetrics")
 def test_count_metric_aggregation(mock_export):
     """Test COUNT metric aggregation"""
     with TestPipeline(
         options=PipelineOptions(
             [
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-sub",
                 '--metric-labels={"service": "test"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
@@ -119,13 +123,13 @@ def test_count_metric_aggregation(mock_export):
         assert_that(result, equal_to([2]))
 
 
-@patch("beametrics.pipeline.ExportMetricsToCloudMonitoring")
+@patch("beametrics.metrics_exporter.ExportMetrics")
 def test_sum_metric_aggregation(mock_export):
     """Test SUM metric aggregation"""
     with TestPipeline(
         options=PipelineOptions(
             [
-                "--export-metric-name=test-metric",
+                "--metric-name=test-metric",
                 "--subscription=projects/test-project/subscriptions/test-sub",
                 '--metric-labels={"service": "test"}',
                 '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
@@ -183,21 +187,23 @@ class MockMetricDefinition(MetricDefinition):
 
 def test_fixed_window_size_validation():
     """Test fixed window size validation"""
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=60,
+        export_type="google-cloud-monitoring",
     )
     transform = pipeline._get_window_transform()
     assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
     assert transform.windowing.windowfn.size == 60
 
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=120,
+        export_type="google-cloud-monitoring",
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
@@ -229,8 +235,12 @@ def test_beametrics_pipeline_with_runtime_value_provider():
     ) as mock_filter, patch("apache_beam.WindowInto") as mock_window:
 
         mock_pcoll = MagicMock()
-        pipeline = PubsubToCloudMonitoringPipeline(
-            filter_condition, metrics_config, metric_definition, window_size=60
+        pipeline = MessagesToMetricsPipeline(
+            filter_condition,
+            metrics_config,
+            metric_definition,
+            window_size=60,
+            export_type="google-cloud-monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -256,11 +266,12 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
         metric_labels={"service": "test"},
     )
 
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
+        export_type="google-cloud-monitoring",
     )
 
     result = pipeline.expand(MagicMock())
@@ -277,11 +288,12 @@ def test_deferred_metric_combiner_with_dict_input():
         metric_labels={"service": "test"},
     )
 
-    pipeline = PubsubToCloudMonitoringPipeline(
+    pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
+        export_type="google-cloud-monitoring",
     )
 
     combiner = pipeline._get_combiner()
@@ -337,3 +349,24 @@ class TestDynamicFixedWindows(unittest.TestCase):
         context = WindowFn.AssignContext(Timestamp(1234567890))
         with self.assertRaises(ValueError):
             windows.assign(context)
+
+    def test_non_integer_window_size(self):
+        window_size = StaticValueProvider(str, "not_a_number")
+        windows = DynamicFixedWindows(window_size)
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        with self.assertRaises(ValueError) as cm:
+            windows.assign(context)
+        self.assertEqual(str(cm.exception), "Window size must be an integer")
+
+    def test_string_integer_window_size(self):
+        window_size = StaticValueProvider(str, "60")
+        windows = DynamicFixedWindows(window_size)
+
+        context = WindowFn.AssignContext(Timestamp(1234567890))
+        assigned = windows.assign(context)
+
+        self.assertEqual(len(assigned), 1)
+        window = assigned[0]
+        self.assertIsInstance(window, IntervalWindow)
+        self.assertEqual(window.end - window.start, 60)
