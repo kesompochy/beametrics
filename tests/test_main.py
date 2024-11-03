@@ -137,7 +137,7 @@ def test_create_metrics_config_for_monitoring():
         metric_name="test-metric",
         metric_labels={"service": "test-service"},
         project_id="test-project",
-        export_type="monitoring",
+        export_type="google-cloud-monitoring",
     )
 
     assert isinstance(config, GoogleCloudMetricsConfig)

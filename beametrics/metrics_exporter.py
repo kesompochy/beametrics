@@ -126,7 +126,7 @@ class MetricsExporterFactory:
         """Create a MetricsExporter instance based on export type.
 
         Args:
-            export_type: Type of exporter ("monitoring", etc)
+            export_type: Type of exporter ("google-cloud-monitoring", etc)
             config: Configuration for the exporter
 
         Returns:
@@ -135,7 +135,7 @@ class MetricsExporterFactory:
         Raises:
             ValueError: If export_type is not supported or config type is invalid
         """
-        if export_type == "monitoring":
+        if export_type == "google-cloud-monitoring":
             if not isinstance(config, GoogleCloudMetricsConfig):
                 raise ValueError("Invalid config type for monitoring exporter")
             return GoogleCloudMetricsExporter(config)

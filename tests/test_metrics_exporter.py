@@ -16,7 +16,7 @@ def test_create_exporter_monitoring():
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
-    exporter = MetricsExporterFactory.create_exporter("monitoring", config)
+    exporter = MetricsExporterFactory.create_exporter("google-cloud-monitoring", config)
     assert exporter.__class__.__name__ == "GoogleCloudMetricsExporter"
 
 
@@ -33,7 +33,7 @@ def test_create_exporter_invalid_type():
 def test_create_exporter_invalid_config():
     config = "invalid_config"
     with pytest.raises(ValueError, match="Invalid config type for monitoring exporter"):
-        MetricsExporterFactory.create_exporter("monitoring", config)
+        MetricsExporterFactory.create_exporter("google-cloud-monitoring", config)
 
 
 def test_google_cloud_connection_config():

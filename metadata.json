@@ -44,7 +44,7 @@
       "label": "Export type",
       "helpText": "Type of export destination",
       "isOptional": true,
-      "defaultValue": "monitoring"
+      "defaultValue": "google-cloud-monitoring"
     },
     {
       "name": "metric-type",

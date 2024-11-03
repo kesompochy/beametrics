@@ -70,7 +70,7 @@ class BeametricsOptions(PipelineOptions):
         parser.add_value_provider_argument(
             "--export-type",
             type=str,
-            default="monitoring",
+            default="google-cloud-monitoring",
             help="Type of export destination",
         )
         parser.add_value_provider_argument(
@@ -89,9 +89,9 @@ class BeametricsOptions(PipelineOptions):
             if isinstance(export_type, beam.options.value_provider.StaticValueProvider):
                 export_type = export_type.value
             else:
-                export_type = "monitoring"
+                export_type = "google-cloud-monitoring"
 
-        if export_type != "monitoring":
+        if export_type != "google-cloud-monitoring":
             raise ValueError(f"Unsupported export type: {export_type}")
 
         metric_type = self.metric_type
@@ -148,7 +148,7 @@ def create_metrics_config(
         metric_name: Name of the metric
         metric_labels: Dictionary of labels to attach to the metric
         project_id: GCP project ID
-        export_type: Type of export destination ("monitoring", etc)
+        export_type: Type of export destination ("google-cloud-monitoring", etc)
 
     Returns:
         GoogleCloudMetricsConfig: Configuration for the specified export type
@@ -160,9 +160,9 @@ def create_metrics_config(
         if isinstance(export_type, beam.options.value_provider.StaticValueProvider):
             export_type = export_type.value
         else:
-            export_type = "monitoring"
+            export_type = "google-cloud-monitoring"
 
-    if export_type != "monitoring":
+    if export_type != "google-cloud-monitoring":
         raise ValueError(f"Unsupported export type: {export_type}")
 
     return GoogleCloudMetricsConfig(

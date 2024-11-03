@@ -83,7 +83,7 @@ def test_beametrics_pipeline_structure():
             metrics_config,
             metric_definition,
             window_size=60,
-            export_type="monitoring",
+            export_type="google-cloud-monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -192,7 +192,7 @@ def test_fixed_window_size_validation():
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=60,
-        export_type="monitoring",
+        export_type="google-cloud-monitoring",
     )
     transform = pipeline._get_window_transform()
     assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
@@ -203,7 +203,7 @@ def test_fixed_window_size_validation():
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=120,
-        export_type="monitoring",
+        export_type="google-cloud-monitoring",
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
@@ -240,7 +240,7 @@ def test_beametrics_pipeline_with_runtime_value_provider():
             metrics_config,
             metric_definition,
             window_size=60,
-            export_type="monitoring",
+            export_type="google-cloud-monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -271,7 +271,7 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
-        export_type="monitoring",
+        export_type="google-cloud-monitoring",
     )
 
     result = pipeline.expand(MagicMock())
@@ -293,7 +293,7 @@ def test_deferred_metric_combiner_with_dict_input():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
-        export_type="monitoring",
+        export_type="google-cloud-monitoring",
     )
 
     combiner = pipeline._get_combiner()
