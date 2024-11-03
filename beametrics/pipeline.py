@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import apache_beam as beam
 from apache_beam.coders import coders
@@ -9,6 +9,7 @@ from apache_beam.utils.timestamp import Duration
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
 from beametrics.metrics_exporter import (
+    ExportMetrics,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
 )
@@ -73,21 +74,6 @@ class DecodeAndParse(beam.DoFn):
         return [parse_json(element)]
 
 
-class ExportMetrics(beam.DoFn):
-    """Export metrics to Cloud Monitoring"""
-
-    def __init__(self, metrics_config: GoogleCloudMetricsConfig):
-        self.metrics_config = metrics_config
-        self.exporter = None
-
-    def setup(self):
-        self.exporter = GoogleCloudMetricsExporter(self.metrics_config)
-
-    def process(self, count):
-        self.exporter.export(float(count))
-        yield count
-
-
 class ExtractField(beam.DoFn):
     """Extract field value from message for aggregation"""
 
@@ -109,6 +95,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
         metrics_config: GoogleCloudMetricsConfig,
         metric_definition: MetricDefinition,
         window_size: beam.options.value_provider.ValueProvider,
+        export_type: Union[str, ValueProvider],
     ):
         """Initialize the pipeline transform
 
@@ -131,6 +118,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
             if isinstance(window_size, ValueProvider)
             else StaticValueProvider(int, window_size)
         )
+        self.export_type = export_type
 
     def _get_window_transform(self):
         """Get the window transform with configured size"""
@@ -203,5 +191,6 @@ class MessagesToMetricsPipeline(beam.PTransform):
             | "Window" >> self._get_window_transform()
             | "AggregateMetrics"
             >> beam.CombineGlobally(self._get_combiner()).without_defaults()
-            | "ExportMetrics" >> beam.ParDo(ExportMetrics(self.metrics_config))
+            | "ExportMetrics"
+            >> beam.ParDo(ExportMetrics(self.metrics_config, self.export_type))
         )

@@ -220,6 +220,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
                 metrics_config=metrics_config,
                 metric_definition=metric_definition,
                 window_size=window_size,
+                export_type=export_type,
             )
         )
 

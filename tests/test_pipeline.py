@@ -79,7 +79,11 @@ def test_beametrics_pipeline_structure():
 
         # Act
         pipeline = MessagesToMetricsPipeline(
-            filter_condition, metrics_config, metric_definition, window_size=60
+            filter_condition,
+            metrics_config,
+            metric_definition,
+            window_size=60,
+            export_type="monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -89,7 +93,7 @@ def test_beametrics_pipeline_structure():
         assert mock_filter.called
 
 
-@patch("beametrics.pipeline.ExportMetrics")
+@patch("beametrics.metrics_exporter.ExportMetrics")
 def test_count_metric_aggregation(mock_export):
     """Test COUNT metric aggregation"""
     with TestPipeline(
@@ -119,7 +123,7 @@ def test_count_metric_aggregation(mock_export):
         assert_that(result, equal_to([2]))
 
 
-@patch("beametrics.pipeline.ExportMetrics")
+@patch("beametrics.metrics_exporter.ExportMetrics")
 def test_sum_metric_aggregation(mock_export):
     """Test SUM metric aggregation"""
     with TestPipeline(
@@ -188,6 +192,7 @@ def test_fixed_window_size_validation():
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=60,
+        export_type="monitoring",
     )
     transform = pipeline._get_window_transform()
     assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
@@ -198,6 +203,7 @@ def test_fixed_window_size_validation():
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=120,
+        export_type="monitoring",
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
@@ -230,7 +236,11 @@ def test_beametrics_pipeline_with_runtime_value_provider():
 
         mock_pcoll = MagicMock()
         pipeline = MessagesToMetricsPipeline(
-            filter_condition, metrics_config, metric_definition, window_size=60
+            filter_condition,
+            metrics_config,
+            metric_definition,
+            window_size=60,
+            export_type="monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -261,6 +271,7 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
+        export_type="monitoring",
     )
 
     result = pipeline.expand(MagicMock())
@@ -282,6 +293,7 @@ def test_deferred_metric_combiner_with_dict_input():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
+        export_type="monitoring",
     )
 
     combiner = pipeline._get_combiner()

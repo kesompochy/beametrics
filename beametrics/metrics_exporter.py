@@ -6,8 +6,8 @@ from typing import Dict, Optional, Protocol, Union
 
 import apache_beam as beam
 from apache_beam.options.value_provider import ValueProvider
-from google.cloud import monitoring_v3
 from google.api_core import exceptions as google_exceptions
+from google.cloud import monitoring_v3
 
 
 class ConnectionConfig(Protocol):
@@ -118,13 +118,46 @@ class GoogleCloudMetricsExporter(MetricsExporter):
             raise
 
 
+class MetricsExporterFactory:
+    """Factory class for creating MetricsExporter instances"""
+
+    @staticmethod
+    def create_exporter(export_type: str, config: MetricsConfig) -> MetricsExporter:
+        """Create a MetricsExporter instance based on export type.
+
+        Args:
+            export_type: Type of exporter ("monitoring", etc)
+            config: Configuration for the exporter
+
+        Returns:
+            MetricsExporter: An instance of the appropriate exporter
+
+        Raises:
+            ValueError: If export_type is not supported or config type is invalid
+        """
+        if export_type == "monitoring":
+            if not isinstance(config, GoogleCloudMetricsConfig):
+                raise ValueError("Invalid config type for monitoring exporter")
+            return GoogleCloudMetricsExporter(config)
+
+        raise ValueError(f"Unsupported export type: {export_type}")
+
+
 class ExportMetrics(beam.DoFn):
-    def __init__(self, metrics_config: GoogleCloudMetricsConfig):
+    def __init__(self, metrics_config: GoogleCloudMetricsConfig, export_type: str):
         self.metrics_config = metrics_config
+        self.export_type = export_type
         self.exporter = None
 
     def setup(self):
-        self.exporter = GoogleCloudMetricsExporter(self.metrics_config)
+        export_type = (
+            self.export_type.get()
+            if isinstance(self.export_type, ValueProvider)
+            else self.export_type
+        )
+        self.exporter = MetricsExporterFactory.create_exporter(
+            export_type, self.metrics_config
+        )
 
     def process(self, count):
         self.exporter.export(float(count))
