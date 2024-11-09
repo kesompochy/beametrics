@@ -90,3 +90,31 @@ def test_message_filter_with_different_operators():
         )
         is False
     )
+
+
+def test_message_filter_error_handling():
+    """Test MessageFilter error handling"""
+    conditions = [
+        FilterCondition(field="response_time", value="100", operator="greater_than")
+    ]
+    matcher = MessageFilter(conditions)
+
+    assert matcher.matches({"response_time": "not a number"}) is False
+
+    assert matcher.matches({"response_time": None}) is False
+
+    assert matcher.matches({}) is False
+
+    conditions = [FilterCondition(field="message", value="error", operator="contains")]
+    matcher = MessageFilter(conditions)
+
+    assert matcher.matches({"message": 123}) is False
+    assert matcher.matches({"message": None}) is False
+
+    conditions = [
+        FilterCondition(
+            field="response_time", value="not a number", operator="greater_than"
+        )
+    ]
+    matcher = MessageFilter(conditions)
+    assert matcher.matches({"response_time": 100}) is False

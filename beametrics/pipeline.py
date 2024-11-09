@@ -24,6 +24,8 @@ class DynamicFixedWindows(NonMergingWindowFn):
         window_size_provider: A ValueProvider that provides the size of the window in seconds.
     """
 
+    DEFAULT_WINDOW_SIZE = 60
+
     def __init__(self, window_size_provider):
         super().__init__()
         if not isinstance(window_size_provider, ValueProvider):
@@ -42,15 +44,23 @@ class DynamicFixedWindows(NonMergingWindowFn):
         Raises:
             ValueError: If the window size is not positive.
         """
-        window_size = self.window_size_provider.get()
 
         try:
+            window_size = self.window_size_provider.get()
             window_size = int(window_size)
-        except (TypeError, ValueError):
-            raise ValueError("Window size must be an integer")
-
-        if window_size <= 0:
-            raise ValueError("The window size must be strictly positive.")
+            if window_size <= 0:
+                logging.warning(
+                    "Window size must be strictly positive. Using default value: %s",
+                    self.DEFAULT_WINDOW_SIZE,
+                )
+                window_size = self.DEFAULT_WINDOW_SIZE
+        except Exception as e:
+            logging.warning(
+                "Failed to get window size: %s. Using default value: %s",
+                str(e),
+                self.DEFAULT_WINDOW_SIZE,
+            )
+            window_size = self.DEFAULT_WINDOW_SIZE
 
         timestamp = context.timestamp
         size = Duration.of(window_size)
@@ -182,24 +192,36 @@ class MessagesToMetricsPipeline(beam.PTransform):
                 return 0
 
             def add_input(self, accumulator, input):
-                if isinstance(input, dict):
-                    return accumulator + 1
-                return accumulator + input
+                try:
+                    if isinstance(input, dict):
+                        return accumulator + 1
+                    return accumulator + input
+                except Exception as e:
+                    logging.error(f"Error adding input: {e}")
+                    return accumulator
 
             def merge_accumulators(self, accumulators):
-                return sum(accumulators)
+                try:
+                    return sum(accumulators)
+                except Exception as e:
+                    logging.error(f"Error merging accumulators: {e}")
+                    return 0
 
             def extract_output(self, accumulator):
-                if isinstance(
-                    self.metric_type, beam.options.value_provider.ValueProvider
-                ):
-                    type_str = self.metric_type.get().upper()
-                else:
-                    type_str = self.metric_type.value.upper()
+                try:
+                    if isinstance(
+                        self.metric_type, beam.options.value_provider.ValueProvider
+                    ):
+                        type_str = self.metric_type.get().upper()
+                    else:
+                        type_str = self.metric_type.value.upper()
 
-                return (
-                    accumulator if type_str == "COUNT" else accumulator
-                )  # TODO: Implements for types other than COUNT
+                    return (
+                        accumulator if type_str == "COUNT" else accumulator
+                    )  # TODO: Implements for types other than COUNT
+                except Exception as e:
+                    logging.error(f"Error extracting output: {e}")
+                    return 0
 
         return DeferredMetricCombiner(metric_type)
 
