@@ -102,27 +102,6 @@ class DecodeAndParse(beam.DoFn):
             return []
 
 
-class MetricTypeRouter(beam.DoFn):
-    def __init__(self, metric_type, field):
-        self.metric_type = metric_type
-        self.field = field
-
-    def process(self, element) -> Generator[Union[Dict, float], None, None]:
-        try:
-            if isinstance(self.metric_type, beam.options.value_provider.ValueProvider):
-                is_count = self.metric_type.get().upper() == "COUNT"
-            else:
-                is_count = self.metric_type == MetricType.COUNT
-
-            if is_count:
-                yield element
-            else:
-                yield float(element.get(self.field, 0))
-        except Exception as e:
-            logging.error(f"Error routing metric type: {str(e)}")
-            yield 0.0
-
-
 class MessagesToMetricsPipeline(beam.PTransform):
     """Transform PubSub messages to Cloud Monitoring metrics"""
 
@@ -161,48 +140,17 @@ class MessagesToMetricsPipeline(beam.PTransform):
         """Get the window transform with configured size"""
         return beam.WindowInto(DynamicFixedWindows(self.window_size))
 
-    def _get_combiner(self):
-        """Get appropriate combiner based on metric type"""
-        metric_type = self.metric_definition.type
-
-        class DeferredMetricCombiner(beam.CombineFn):
-            def __init__(self, metric_type):
-                self.metric_type = metric_type
-
-            def create_accumulator(self):
-                return 0
-
-            def add_input(self, accumulator, input):
-                try:
-                    if isinstance(input, dict):
-                        return accumulator + 1
-                    return accumulator + input
-                except Exception as e:
-                    logging.error(f"Error adding input: {e}")
-                    return accumulator
-
-            def merge_accumulators(self, accumulators):
-                try:
-                    return sum(accumulators)
-                except Exception as e:
-                    logging.error(f"Error merging accumulators: {e}")
-                    return 0
-
-            def extract_output(self, accumulator):
-                try:
-                    if isinstance(
-                        self.metric_type, beam.options.value_provider.ValueProvider
-                    ):
-                        type_str = self.metric_type.get().upper()
-                    else:
-                        type_str = self.metric_type.value.upper()
-
-                    return accumulator if type_str == "COUNT" else accumulator
-                except Exception as e:
-                    logging.error(f"Error extracting output: {e}")
-                    return 0
-
-        return DeferredMetricCombiner(metric_type)
+    def _get_metric_type(self) -> bool:
+        """Get whether the metric type is COUNT"""
+        try:
+            if isinstance(
+                self.metric_definition.type, beam.options.value_provider.ValueProvider
+            ):
+                return self.metric_definition.type.get().upper() == "COUNT"
+            return self.metric_definition.type == MetricType.COUNT
+        except Exception as e:
+            logging.error(f"Error getting metric type: {e}")
+            return True
 
     def expand(self, pcoll):
         filtered = (
@@ -211,11 +159,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
             | "FilterMessages" >> beam.Filter(self.filter.matches)
         )
 
-        values = filtered | "RouteByMetricType" >> beam.ParDo(
-            MetricTypeRouter(self.metric_definition.type, self.metric_definition.field)
-        )
-
-        keyed = values | "AddLabels" >> beam.Map(
+        keyed = filtered | "AddLabels" >> beam.Map(
             lambda msg: (
                 tuple(
                     sorted(
@@ -224,19 +168,22 @@ class MessagesToMetricsPipeline(beam.PTransform):
                             **{
                                 label_name: str(msg.get(field_name, ""))
                                 for label_name, field_name in self.metric_definition.get_dynamic_labels().items()
-                                if msg.get(field_name) is not None
                             },
                         }.items()
                     )
                 ),
-                msg if isinstance(msg, (int, float)) else 1,
+                (
+                    1
+                    if self._get_metric_type()
+                    else float(msg.get(self.metric_definition.field, 0))
+                ),
             )
         )
 
         return (
             keyed
             | "Window" >> self._get_window_transform()
-            | "CombinePerKey" >> beam.CombinePerKey(self._get_combiner())
+            | "CombinePerKey" >> beam.CombinePerKey(sum)
             | "FormatOutput"
             >> beam.Map(lambda kv: {"labels": dict(kv[0]), "value": kv[1]})
             | "ExportMetrics"
