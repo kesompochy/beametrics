@@ -71,7 +71,17 @@ def parse_json(message: bytes) -> Dict[str, Any]:
     """Parse JSON message from PubSub"""
     import json
 
-    return json.loads(message.decode("utf-8"))
+    encodings = ["utf-8", "shift-jis", "euc-jp", "iso-2022-jp"]
+
+    for encoding in encodings:
+        try:
+            return json.loads(message.decode(encoding))
+        except UnicodeDecodeError:
+            continue
+        except json.JSONDecodeError:
+            break
+
+    raise ValueError(f"Failed to decode message with any of the encodings: {encodings}")
 
 
 class DecodeAndParse(beam.DoFn):

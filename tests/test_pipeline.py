@@ -45,6 +45,19 @@ def test_parse_json():
     assert result["severity"] == "ERROR"
     assert result["message"] == "test error"
 
+    inputs_str = '{"severity": "ERROR", "message": "テスト"}'  # Shift-JIS
+    inputs_bytes = inputs_str.encode("shift-jis")
+    result = parse_json(inputs_bytes)
+    assert result["message"] == "テスト"
+
+    with pytest.raises(ValueError) as exc_info:
+        parse_json(b"invalid json data")
+    assert "Failed to decode message" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        parse_json(b"\xFF\xFF\xFF")
+    assert "Failed to decode message" in str(exc_info.value)
+
 
 def test_beametrics_pipeline_structure():
     """Test MessagesToMetricsPipeline basic structure"""
