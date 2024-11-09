@@ -215,18 +215,20 @@ def test_pipeline_with_dynamic_labels():
 
         test_exporter = TestMetricsExporter()
 
-        result = (
-            p
-            | beam.Create(input_data)
-            | MessagesToMetricsPipeline(
-                filter_conditions=[filter_condition],
-                metrics_config=metrics_config,
-                metric_definition=metric_definition,
-                window_size=60,
-                export_type="google-cloud-monitoring",
+        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+            mock_export.return_value = test_exporter  # TestMetricsExporterを使用
+
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[filter_condition],
+                    metrics_config=metrics_config,
+                    metric_definition=metric_definition,
+                    window_size=60,
+                    export_type="google-cloud-monitoring",
+                )
             )
-            | beam.ParDo(test_exporter)
-        )
 
         expected_metrics = [
             {"value": 2, "labels": {"service": "test", "region": "us-east1"}},
