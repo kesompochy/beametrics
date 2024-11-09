@@ -17,6 +17,7 @@ from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
 )
 from beametrics.pipeline import (
+    DecodeAndParse,
     DynamicFixedWindows,
     MessagesToMetricsPipeline,
     parse_json,
@@ -370,3 +371,20 @@ class TestDynamicFixedWindows(unittest.TestCase):
         window = assigned[0]
         self.assertIsInstance(window, IntervalWindow)
         self.assertEqual(window.end - window.start, 60)
+
+
+def test_decode_and_parse_dofn():
+    """Test DecodeAndParse DoFn directly"""
+    dofn = DecodeAndParse()
+
+    valid_input = b'{"severity": "ERROR", "message": "test"}'
+    result = list(dofn.process(valid_input))
+    assert result == [{"severity": "ERROR", "message": "test"}]
+
+    invalid_json = b"invalid json data"
+    result = list(dofn.process(invalid_json))
+    assert result == []
+
+    invalid_encoding = b"\xa1\xa1\xa1invalid"
+    result = list(dofn.process(invalid_encoding))
+    assert result == []

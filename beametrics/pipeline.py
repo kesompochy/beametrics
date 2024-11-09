@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Union
 
 import apache_beam as beam
@@ -76,8 +77,13 @@ def parse_json(message: bytes) -> Dict[str, Any]:
 class DecodeAndParse(beam.DoFn):
     """Decode and parse PubSub message"""
 
-    def process(self, element):
-        return [parse_json(element)]
+    def process(self, element) -> List[Dict[str, Any]]:
+        try:
+            result = parse_json(element)
+            return [result]
+        except Exception as e:
+            logging.error(f"Error parsing JSON: {e}")
+            return []
 
 
 class ExtractField(beam.DoFn):
