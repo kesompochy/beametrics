@@ -9,7 +9,7 @@ on:
       - "tests/**"
       - "pyproject.toml"
       - "poetry.lock"
-      - ".github/ci.yaml"
+      - ".github/workflows/ci.yaml"
 
 jobs:
   test:
