@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, Generator, List, Union
 
@@ -164,7 +165,13 @@ class MessagesToMetricsPipeline(beam.PTransform):
                 tuple(
                     sorted(
                         {
-                            **self.metric_definition.metric_labels,
+                            **(
+                                json.loads(self.metric_definition.metric_labels.get())
+                                if isinstance(
+                                    self.metric_definition.metric_labels, ValueProvider
+                                )
+                                else self.metric_definition.metric_labels
+                            ),
                             **{
                                 label_name: str(msg.get(field_name, ""))
                                 for label_name, field_name in self.metric_definition.get_dynamic_labels().items()

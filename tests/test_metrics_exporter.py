@@ -118,11 +118,13 @@ def test_export_metrics():
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
 
+    input_element = {"labels": {}, "value": 1.0}
+
     with patch("google.cloud.monitoring_v3.MetricServiceClient"):
         dofn = ExportMetrics(config, "google-cloud-monitoring")
         dofn.setup()
-        result = list(dofn.process(1.0))
-        assert result == [1.0]
+        result = list(dofn.process(input_element))
+        assert result == [input_element]
 
     with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
         mock_client.return_value.create_time_series.side_effect = Exception(
@@ -130,8 +132,8 @@ def test_export_metrics():
         )
         dofn = ExportMetrics(config, "google-cloud-monitoring")
         dofn.setup()
-        result = list(dofn.process(1.0))
-        assert result == [1.0]
+        result = list(dofn.process(input_element))
+        assert result == [input_element]
 
 
 def test_google_cloud_metrics_exporter_with_dynamic_labels():
