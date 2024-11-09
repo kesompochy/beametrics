@@ -19,7 +19,9 @@ from beametrics.metrics_exporter import (
 from beametrics.pipeline import (
     DecodeAndParse,
     DynamicFixedWindows,
+    ExtractField,
     MessagesToMetricsPipeline,
+    MetricTypeRouter,
     parse_json,
 )
 
@@ -374,7 +376,7 @@ class TestDynamicFixedWindows(unittest.TestCase):
 
 
 def test_decode_and_parse_dofn():
-    """Test DecodeAndParse DoFn directly"""
+    """Test DecodeAndParse DoFn"""
     dofn = DecodeAndParse()
 
     valid_input = b'{"severity": "ERROR", "message": "test"}'
@@ -388,3 +390,51 @@ def test_decode_and_parse_dofn():
     invalid_encoding = b"\xa1\xa1\xa1invalid"
     result = list(dofn.process(invalid_encoding))
     assert result == []
+
+
+def test_extract_field_dofn():
+    """Test ExtractField DoFn"""
+    dofn = ExtractField(field="count")
+
+    valid_input = {"count": 10}
+    result = list(dofn.process(valid_input))
+    assert result == [10.0]
+
+    missing_field = {"other_field": 10}
+    result = list(dofn.process(missing_field))
+    assert result == []
+
+    invalid_type = {"count": "not a number"}
+    result = list(dofn.process(invalid_type))
+    assert result == []
+
+    none_value = {"count": None}
+    result = list(dofn.process(none_value))
+    assert result == []
+
+
+def test_metric_type_router_dofn():
+    """Test MetricTypeRouter DoFn"""
+    dofn = MetricTypeRouter(metric_type=MetricType.COUNT, field="value")
+    input_data = {"field": "test"}
+    result = list(dofn.process(input_data))
+    assert result == [input_data]
+
+    dofn = MetricTypeRouter(
+        metric_type=StaticValueProvider(str, "COUNT"), field="value"
+    )
+    result = list(dofn.process(input_data))
+    assert result == [input_data]
+
+    dofn = MetricTypeRouter(metric_type="SUM", field="value")
+    input_data = {"value": 10}
+    result = list(dofn.process(input_data))
+    assert result == [10.0]
+
+    input_data = {"other_field": 10}
+    result = list(dofn.process(input_data))
+    assert result == [0.0]
+
+    input_data = {"value": "not a number"}
+    result = list(dofn.process(input_data))
+    assert result == [0.0]
