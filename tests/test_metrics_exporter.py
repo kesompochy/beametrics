@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from beametrics.metrics_exporter import (
+    ExportMetrics,
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
@@ -107,3 +108,27 @@ def test_google_cloud_metrics_exporter_parameters():
         assert time_series.points[0].value.double_value == 1.0
         assert time_series.points[0].interval.end_time.timestamp() > 0
         assert time_series.points[0].interval.end_time.timestamp() > 0
+
+
+def test_export_metrics():
+    """Test ExportMetrics DoFn"""
+    config = GoogleCloudMetricsConfig(
+        metric_name="custom.googleapis.com/test",
+        metric_labels={},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+
+    with patch("google.cloud.monitoring_v3.MetricServiceClient"):
+        dofn = ExportMetrics(config, "google-cloud-monitoring")
+        dofn.setup()
+        result = list(dofn.process(1.0))
+        assert result == [1.0]
+
+    with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
+        mock_client.return_value.create_time_series.side_effect = Exception(
+            "Export failed"
+        )
+        dofn = ExportMetrics(config, "google-cloud-monitoring")
+        dofn.setup()
+        result = list(dofn.process(1.0))
+        assert result == [1.0]

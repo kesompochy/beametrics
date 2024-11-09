@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -160,5 +161,9 @@ class ExportMetrics(beam.DoFn):
         )
 
     def process(self, count):
-        self.exporter.export(float(count))
-        yield count
+        try:
+            self.exporter.export(float(count))
+            yield count
+        except Exception as e:
+            logging.error(f"Error exporting metrics: {e}")
+            yield count

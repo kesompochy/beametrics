@@ -17,8 +17,11 @@ from beametrics.metrics_exporter import (
     GoogleCloudMetricsConfig,
 )
 from beametrics.pipeline import (
+    DecodeAndParse,
     DynamicFixedWindows,
+    ExtractField,
     MessagesToMetricsPipeline,
+    MetricTypeRouter,
     parse_json,
 )
 
@@ -41,6 +44,19 @@ def test_parse_json():
     result = parse_json(input_bytes)
     assert result["severity"] == "ERROR"
     assert result["message"] == "test error"
+
+    inputs_str = '{"severity": "ERROR", "message": "テスト"}'  # Shift-JIS
+    inputs_bytes = inputs_str.encode("shift-jis")
+    result = parse_json(inputs_bytes)
+    assert result["message"] == "テスト"
+
+    with pytest.raises(ValueError) as exc_info:
+        parse_json(b"invalid json data")
+    assert "Failed to decode message" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        parse_json(b"\xFF\xFF\xFF")
+    assert "Failed to decode message" in str(exc_info.value)
 
 
 def test_beametrics_pipeline_structure():
@@ -370,3 +386,68 @@ class TestDynamicFixedWindows(unittest.TestCase):
         window = assigned[0]
         self.assertIsInstance(window, IntervalWindow)
         self.assertEqual(window.end - window.start, 60)
+
+
+def test_decode_and_parse_dofn():
+    """Test DecodeAndParse DoFn"""
+    dofn = DecodeAndParse()
+
+    valid_input = b'{"severity": "ERROR", "message": "test"}'
+    result = list(dofn.process(valid_input))
+    assert result == [{"severity": "ERROR", "message": "test"}]
+
+    invalid_json = b"invalid json data"
+    result = list(dofn.process(invalid_json))
+    assert result == []
+
+    invalid_encoding = b"\xa1\xa1\xa1invalid"
+    result = list(dofn.process(invalid_encoding))
+    assert result == []
+
+
+def test_extract_field_dofn():
+    """Test ExtractField DoFn"""
+    dofn = ExtractField(field="count")
+
+    valid_input = {"count": 10}
+    result = list(dofn.process(valid_input))
+    assert result == [10.0]
+
+    missing_field = {"other_field": 10}
+    result = list(dofn.process(missing_field))
+    assert result == []
+
+    invalid_type = {"count": "not a number"}
+    result = list(dofn.process(invalid_type))
+    assert result == []
+
+    none_value = {"count": None}
+    result = list(dofn.process(none_value))
+    assert result == []
+
+
+def test_metric_type_router_dofn():
+    """Test MetricTypeRouter DoFn"""
+    dofn = MetricTypeRouter(metric_type=MetricType.COUNT, field="value")
+    input_data = {"field": "test"}
+    result = list(dofn.process(input_data))
+    assert result == [input_data]
+
+    dofn = MetricTypeRouter(
+        metric_type=StaticValueProvider(str, "COUNT"), field="value"
+    )
+    result = list(dofn.process(input_data))
+    assert result == [input_data]
+
+    dofn = MetricTypeRouter(metric_type="SUM", field="value")
+    input_data = {"value": 10}
+    result = list(dofn.process(input_data))
+    assert result == [10.0]
+
+    input_data = {"other_field": 10}
+    result = list(dofn.process(input_data))
+    assert result == [0.0]
+
+    input_data = {"value": "not a number"}
+    result = list(dofn.process(input_data))
+    assert result == [0.0]
