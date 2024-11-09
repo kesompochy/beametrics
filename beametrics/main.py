@@ -78,6 +78,11 @@ class BeametricsOptions(PipelineOptions):
             type=str,
             help="Type of Dataflow template (flex or classic)",
         )
+        parser.add_value_provider_argument(
+            "--dynamic-labels",
+            type=str,
+            help="Dynamic labels (JSON format)",
+        )
 
     def validate_options(self):
         standard_options = self.view_as(StandardOptions)
