@@ -9,11 +9,7 @@ from apache_beam.utils.timestamp import Duration
 
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
-from beametrics.metrics_exporter import (
-    ExportMetrics,
-    GoogleCloudMetricsConfig,
-    GoogleCloudMetricsExporter,
-)
+from beametrics.metrics_exporter import ExportMetrics, GoogleCloudMetricsConfig
 
 
 class DynamicFixedWindows(NonMergingWindowFn):
