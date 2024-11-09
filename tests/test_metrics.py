@@ -1,4 +1,5 @@
 import pytest
+from apache_beam.options.value_provider import StaticValueProvider, ValueProvider
 
 from beametrics.metrics import MetricDefinition, MetricType
 
@@ -77,3 +78,37 @@ def test_metric_definition_with_none_dynamic_labels():
     )
 
     assert definition.dynamic_labels == {}
+
+
+def test_metric_definition_with_value_provider_type():
+    """Test MetricDefinition with ValueProvider type"""
+    from apache_beam.options.value_provider import StaticValueProvider
+
+    definition = MetricDefinition(
+        name="test_count",
+        type=StaticValueProvider(str, "count"),
+        field=None,
+        metric_labels={"service": "test"},
+    )
+    assert definition.name == "test_count"
+    assert isinstance(definition.type, ValueProvider)
+    assert definition.field is None
+
+    definition = MetricDefinition(
+        name="test_sum",
+        type=StaticValueProvider(str, "sum"),
+        field="value",
+        metric_labels={"service": "test"},
+    )
+    assert definition.name == "test_sum"
+    assert isinstance(definition.type, ValueProvider)
+    assert definition.field == "value"
+
+    with pytest.raises(ValueError) as exc_info:
+        MetricDefinition(
+            name="test_sum",
+            type=StaticValueProvider(str, "sum"),
+            field=None,
+            metric_labels={"service": "test"},
+        )
+    assert "field is required for sum metric type" in str(exc_info.value)
