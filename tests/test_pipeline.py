@@ -401,55 +401,57 @@ def test_metric_type_evaluation():
     assert result is False
 
 
-@patch("beametrics.metrics_exporter.ExportMetrics")
-def test_metric_type_late_evaluation(mock_export):
+def test_metric_type_late_evaluation():
     """Test that metric type is evaluated at runtime"""
-    mock_export.return_value = TestMetricsExporter()
-    RuntimeValueProvider.set_runtime_options(None)
-    options = PipelineOptions(
-        [
-            "--metric-name=test-metric",
-            "--subscription=projects/test-project/subscriptions/test-sub",
-            '--metric-labels={"service": "test"}',
-            '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-        ]
-    )
-
-    runtime_provider = RuntimeValueProvider(
-        option_name="metric_type", value_type=str, default_value="sum"
-    )
-
-    metric_definition = MetricDefinition(
-        name="test_metric",
-        type=runtime_provider,
-        field="value",
-        metric_labels={"service": "test"},
-    )
-
-    pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
-        metric_definition=metric_definition,
-        window_size=300,
-        export_type="google-cloud-monitoring",
-    )
-
-    RuntimeValueProvider.set_runtime_options({"metric_type": "sum"})
-
-    with TestPipeline(options=options) as p:
-        input_data = [b'{"severity": "ERROR", "value": 100}']
-        result = (
-            p
-            | beam.Create(input_data)
-            | MessagesToMetricsPipeline(
-                filter_conditions=[MockFilterCondition()],
-                metrics_config=MockMetricsConfig(),
-                metric_definition=metric_definition,
-                window_size=300,
-                export_type="google-cloud-monitoring",
-            )
+    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+        mock_export.return_value = TestMetricsExporter()
+        RuntimeValueProvider.set_runtime_options(None)
+        options = PipelineOptions(
+            [
+                "--metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--metric-labels={"service": "test"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+            ]
         )
-        assert_that(result, equal_to([{"labels": {"service": "test"}, "value": 100}]))
+
+        runtime_provider = RuntimeValueProvider(
+            option_name="metric_type", value_type=str, default_value="sum"
+        )
+
+        metric_definition = MetricDefinition(
+            name="test_metric",
+            type=runtime_provider,
+            field="value",
+            metric_labels={"service": "test"},
+        )
+
+        pipeline = MessagesToMetricsPipeline(
+            filter_conditions=[MockFilterCondition()],
+            metrics_config=MockMetricsConfig(),
+            metric_definition=metric_definition,
+            window_size=300,
+            export_type="google-cloud-monitoring",
+        )
+
+        RuntimeValueProvider.set_runtime_options({"metric_type": "sum"})
+
+        with TestPipeline(options=options) as p:
+            input_data = [b'{"severity": "ERROR", "value": 100}']
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[MockFilterCondition()],
+                    metrics_config=MockMetricsConfig(),
+                    metric_definition=metric_definition,
+                    window_size=300,
+                    export_type="google-cloud-monitoring",
+                )
+            )
+            assert_that(
+                result, equal_to([{"labels": {"service": "test"}, "value": 100}])
+            )
 
 
 class TestDynamicFixedWindows(unittest.TestCase):
