@@ -585,3 +585,62 @@ def test_deferred_metric_combiner_error_handling():
     combiner.metric_type = ErrorValueProvider()
     result = combiner.extract_output(10)
     assert result == 0
+
+
+def test_pipeline_with_sum_metric():
+    """Test pipeline with SUM metric type"""
+    with TestPipeline(
+        "--metric-name=test-metric",
+        "--subscription=projects/test-project/subscriptions/test-subscription",
+        '--metric-labels={"service": "test"}',
+        '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+        "--export-type=google-cloud-monitoring",
+    ) as p:
+        input_data = [
+            b'{"severity": "ERROR", "region": "us-east1", "bytes": 100}',
+            b'{"severity": "ERROR", "region": "us-west1", "bytes": 150}',
+            b'{"severity": "ERROR", "region": "us-east1", "bytes": 200}',
+        ]
+
+        filter_condition = FilterCondition(
+            field="severity", value="ERROR", operator="equals"
+        )
+
+        metrics_config = GoogleCloudMetricsConfig(
+            metric_name="custom.googleapis.com/test",
+            metric_labels={"service": "test"},
+            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+        )
+
+        metric_definition = MetricDefinition(
+            name="bytes_total",
+            type=MetricType.SUM,
+            field="bytes",
+            metric_labels={"service": "test"},
+            dynamic_labels={"region": "region"},
+        )
+
+        test_exporter = TestMetricsExporter()
+
+        result = (
+            p
+            | beam.Create(input_data)
+            | MessagesToMetricsPipeline(
+                filter_conditions=[filter_condition],
+                metrics_config=metrics_config,
+                metric_definition=metric_definition,
+                window_size=60,
+                export_type="google-cloud-monitoring",
+            )
+            | beam.ParDo(test_exporter)
+        )
+
+        expected_metrics = [
+            {
+                "value": 300,
+                "labels": {"service": "test", "region": "us-east1"},
+            },  # 100 + 200
+            {"value": 150, "labels": {"service": "test", "region": "us-west1"}},  # 150
+        ]
+
+        assert_that(result, equal_to(expected_metrics))
