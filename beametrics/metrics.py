@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional, Union
 
-from apache_beam.options.value_provider import ValueProvider
+from apache_beam.options.value_provider import StaticValueProvider, ValueProvider
 
 
 class MetricType(Enum):
@@ -16,15 +16,19 @@ class MetricType(Enum):
 @dataclass
 class MetricDefinition:
     name: str
-    type: MetricType
+    type: Union[MetricType, ValueProvider]
     field: Optional[str]
     metric_labels: Dict[str, str]
-    dynamic_labels: Optional[Union[Dict[str, str], ValueProvider]] = (
-        None  # ValueProviderを追加
-    )
+    dynamic_labels: Optional[Union[Dict[str, str], ValueProvider]] = None
 
     def __post_init__(self):
-        if self.type in [MetricType.SUM] and self.field is None:
+        if isinstance(self.type, ValueProvider):
+            if isinstance(self.type, StaticValueProvider):
+                type_value = self.type.get().lower()
+                if type_value == "sum" and self.field is None:
+                    raise ValueError(f"field is required for {type_value} metric type")
+
+        elif self.type in [MetricType.SUM] and self.field is None:
             raise ValueError(f"field is required for {self.type.value} metric type")
 
         if not isinstance(self.dynamic_labels, ValueProvider):
