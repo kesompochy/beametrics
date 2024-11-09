@@ -23,7 +23,6 @@ from beametrics.metrics_exporter import (
 from beametrics.pipeline import (
     DecodeAndParse,
     DynamicFixedWindows,
-    ExtractField,
     MessagesToMetricsPipeline,
     MetricTypeRouter,
     parse_json,
@@ -174,6 +173,67 @@ def test_sum_metric_aggregation(mock_export):
         )
 
         assert_that(result, equal_to([250]))
+
+
+def test_pipeline_with_dynamic_labels():
+    """Test pipeline with dynamic labels extraction"""
+    with TestPipeline(
+        options=PipelineOptions(
+            [
+                "--metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--dynamic-labels={"region": "region"}',
+                "--metric-field=count",
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+                '--metric-labels={"service": "test"}',
+            ]
+        )
+    ) as p:
+        input_data = [
+            b'{"severity": "ERROR", "region": "us-east1", "count": 1}',
+            b'{"severity": "ERROR", "region": "us-west1", "count": 1}',
+            b'{"severity": "ERROR", "region": "us-east1", "count": 1}',
+        ]
+
+        filter_condition = FilterCondition(
+            field="severity", value="ERROR", operator="equals"
+        )
+
+        metrics_config = GoogleCloudMetricsConfig(
+            metric_name="custom.googleapis.com/test",
+            metric_labels={"service": "test"},
+            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+        )
+
+        metric_definition = MetricDefinition(
+            name="error_count",
+            type=MetricType.COUNT,
+            field=None,
+            metric_labels={"service": "test"},
+            dynamic_labels={"region": "region"},
+        )
+
+        test_exporter = TestMetricsExporter()
+
+        result = (
+            p
+            | beam.Create(input_data)
+            | MessagesToMetricsPipeline(
+                filter_conditions=[filter_condition],
+                metrics_config=metrics_config,
+                metric_definition=metric_definition,
+                window_size=60,
+                export_type="google-cloud-monitoring",
+            )
+            | beam.ParDo(test_exporter)
+        )
+
+        expected_metrics = [
+            {"value": 2, "labels": {"service": "test", "region": "us-east1"}},
+            {"value": 1, "labels": {"service": "test", "region": "us-west1"}},
+        ]
+
+        assert_that(result, equal_to(expected_metrics))
 
 
 class MockFilterCondition(FilterCondition):
@@ -406,27 +466,6 @@ def test_decode_and_parse_dofn():
 
     invalid_encoding = b"\xa1\xa1\xa1invalid"
     result = list(dofn.process(invalid_encoding))
-    assert result == []
-
-
-def test_extract_field_dofn():
-    """Test ExtractField DoFn"""
-    dofn = ExtractField(field="count")
-
-    valid_input = {"count": 10}
-    result = list(dofn.process(valid_input))
-    assert result == [10.0]
-
-    missing_field = {"other_field": 10}
-    result = list(dofn.process(missing_field))
-    assert result == []
-
-    invalid_type = {"count": "not a number"}
-    result = list(dofn.process(invalid_type))
-    assert result == []
-
-    none_value = {"count": None}
-    result = list(dofn.process(none_value))
     assert result == []
 
 

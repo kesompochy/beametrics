@@ -35,3 +35,45 @@ def test_metric_definition_requires_field_for_non_count():
         )
     assert "field is required for sum metric type" == str(exc_info.value)
     assert "field is required for sum metric type" == str(exc_info.value)
+
+
+def test_metric_definition_with_dynamic_labels():
+    """Test MetricDefinition with dynamic labels"""
+    definition = MetricDefinition(
+        name="error_count",
+        type=MetricType.COUNT,
+        field=None,
+        metric_labels={"service": "test"},
+        dynamic_labels={"region": "region_field"},
+    )
+
+    assert definition.name == "error_count"
+    assert definition.type == MetricType.COUNT
+    assert definition.field is None
+    assert definition.metric_labels == {"service": "test"}
+    assert definition.dynamic_labels == {"region": "region_field"}
+
+
+def test_metric_definition_with_empty_dynamic_labels():
+    """Test MetricDefinition initializes empty dynamic_labels to empty dict"""
+    definition = MetricDefinition(
+        name="error_count",
+        type=MetricType.COUNT,
+        field=None,
+        metric_labels={"service": "test"},
+    )
+
+    assert definition.dynamic_labels == {}
+
+
+def test_metric_definition_with_none_dynamic_labels():
+    """Test MetricDefinition handles None dynamic_labels"""
+    definition = MetricDefinition(
+        name="error_count",
+        type=MetricType.COUNT,
+        field=None,
+        metric_labels={"service": "test"},
+        dynamic_labels=None,
+    )
+
+    assert definition.dynamic_labels == {}

@@ -102,21 +102,6 @@ class DecodeAndParse(beam.DoFn):
             return []
 
 
-class ExtractField(beam.DoFn):
-    """Extract field value from message for aggregation"""
-
-    def __init__(self, field: str):
-        self.field = field
-
-    def process(self, element) -> Generator[float, None, None]:
-        try:
-            value = element.get(self.field)
-            if value is not None and isinstance(value, (int, float)):
-                yield float(value)
-        except Exception as e:
-            logging.error(f"Error extracting field {self.field}: {e}")
-
-
 class MetricTypeRouter(beam.DoFn):
     def __init__(self, metric_type, field):
         self.metric_type = metric_type
@@ -212,9 +197,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
                     else:
                         type_str = self.metric_type.value.upper()
 
-                    return (
-                        accumulator if type_str == "COUNT" else accumulator
-                    )  # TODO: Implements for types other than COUNT
+                    return accumulator if type_str == "COUNT" else accumulator
                 except Exception as e:
                     logging.error(f"Error extracting output: {e}")
                     return 0
@@ -232,11 +215,83 @@ class MessagesToMetricsPipeline(beam.PTransform):
             MetricTypeRouter(self.metric_definition.type, self.metric_definition.field)
         )
 
+        keyed = values | "AddLabels" >> beam.Map(
+            lambda msg: (
+                tuple(
+                    sorted(
+                        {
+                            **self.metric_definition.metric_labels,
+                            **{
+                                label_name: str(msg.get(field_name, ""))
+                                for label_name, field_name in self.metric_definition.dynamic_labels.items()
+                                if msg.get(field_name) is not None
+                            },
+                        }.items()
+                    )
+                ),
+                msg if isinstance(msg, (int, float)) else 1,
+            )
+        )
+
         return (
-            values
+            keyed
             | "Window" >> self._get_window_transform()
-            | "AggregateMetrics"
-            >> beam.CombineGlobally(self._get_combiner()).without_defaults()
+            | "CombinePerKey" >> beam.CombinePerKey(self._get_combiner())
+            | "FormatOutput"
+            >> beam.Map(lambda kv: {"labels": dict(kv[0]), "value": kv[1]})
             | "ExportMetrics"
             >> beam.ParDo(ExportMetrics(self.metrics_config, self.export_type))
         )
+
+
+def test_pipeline_with_sum_metric():
+    """Test pipeline with SUM metric type"""
+    with TestPipeline() as p:
+        input_data = [
+            b'{"severity": "ERROR", "region": "us-east1", "bytes": 100}',
+            b'{"severity": "ERROR", "region": "us-west1", "bytes": 150}',
+            b'{"severity": "ERROR", "region": "us-east1", "bytes": 200}',
+        ]
+
+        filter_condition = FilterCondition(
+            field="severity", value="ERROR", operator="equals"
+        )
+
+        metrics_config = GoogleCloudMetricsConfig(
+            metric_name="custom.googleapis.com/test",
+            metric_labels={"service": "test"},
+            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+        )
+
+        metric_definition = MetricDefinition(
+            name="bytes_total",
+            type=MetricType.SUM,
+            field="bytes",
+            metric_labels={"service": "test"},
+            dynamic_labels={"region": "region"},
+        )
+
+        test_exporter = TestMetricsExporter()
+
+        result = (
+            p
+            | beam.Create(input_data)
+            | MessagesToMetricsPipeline(
+                filter_conditions=[filter_condition],
+                metrics_config=metrics_config,
+                metric_definition=metric_definition,
+                window_size=60,
+                export_type="google-cloud-monitoring",
+            )
+            | beam.ParDo(test_exporter)
+        )
+
+        expected_metrics = [
+            {
+                "value": 300,
+                "labels": {"service": "test", "region": "us-east1"},
+            },  # 100 + 200
+            {"value": 150, "labels": {"service": "test", "region": "us-west1"}},  # 150
+        ]
+
+        assert_that(result, equal_to(expected_metrics))

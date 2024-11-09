@@ -192,6 +192,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
     metric_field = getattr(options, "metric_field", None)
     window_size = options.window_size
     export_type = options.export_type
+    dynamic_labels = options.dynamic_labels
 
     # Must be str or None as arg for ReadFromPubSub with DataflowRunner, not ValueProvider
     subscription = options.subscription.get()
@@ -213,6 +214,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
         type=metric_type_enum,
         field=metric_field,
         metric_labels=metric_labels,
+        dynamic_labels=dynamic_labels,
     )
 
     with Pipeline(options=pipeline_options) as p:
