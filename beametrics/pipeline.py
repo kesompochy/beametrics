@@ -223,7 +223,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
                             **self.metric_definition.metric_labels,
                             **{
                                 label_name: str(msg.get(field_name, ""))
-                                for label_name, field_name in self.metric_definition.dynamic_labels.items()
+                                for label_name, field_name in self.metric_definition.get_dynamic_labels().items()
                                 if msg.get(field_name) is not None
                             },
                         }.items()
