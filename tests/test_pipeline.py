@@ -404,6 +404,7 @@ def test_metric_type_evaluation():
 @patch("beametrics.metrics_exporter.ExportMetrics")
 def test_metric_type_late_evaluation(mock_export):
     """Test that metric type is evaluated at runtime"""
+    mock_export.return_value = TestMetricsExporter()
     RuntimeValueProvider.set_runtime_options(None)
     options = PipelineOptions(
         [
