@@ -160,10 +160,10 @@ class ExportMetrics(beam.DoFn):
             export_type, self.metrics_config
         )
 
-    def process(self, count):
+    def process(self, element):
         try:
-            self.exporter.export(float(count))
-            yield count
+            self.exporter.export(float(element["value"]), element["labels"])
+            yield element
         except Exception as e:
             logging.error(f"Error exporting metrics: {e}")
-            yield count
+            yield element
