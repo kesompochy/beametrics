@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import List
 
@@ -22,15 +23,23 @@ class MessageFilter:
         )
 
     def _matches_condition(self, message: dict, condition: FilterCondition) -> bool:
-        if condition.operator == "equals":
-            return message.get(condition.field) == condition.value
-        elif condition.operator == "contains":
-            value = message.get(condition.field)
-            return isinstance(value, str) and condition.value in value
-        elif condition.operator == "greater_than":
-            value = message.get(condition.field)
-            return isinstance(value, (int, float)) and value > float(condition.value)
-        elif condition.operator == "less_than":
-            value = message.get(condition.field)
-            return isinstance(value, (int, float)) and value < float(condition.value)
-        return False
+        try:
+            if condition.operator == "equals":
+                return message.get(condition.field) == condition.value
+            elif condition.operator == "contains":
+                value = message.get(condition.field)
+                return isinstance(value, str) and condition.value in value
+            elif condition.operator == "greater_than":
+                value = message.get(condition.field)
+                return isinstance(value, (int, float)) and value > float(
+                    condition.value
+                )
+            elif condition.operator == "less_than":
+                value = message.get(condition.field)
+                return isinstance(value, (int, float)) and value < float(
+                    condition.value
+                )
+            return False
+        except Exception as e:
+            logging.error(f"Error matching condition: {condition}. Error: {e}")
+            return False

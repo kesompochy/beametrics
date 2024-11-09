@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 import apache_beam as beam
 import pytest
 from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.options.value_provider import RuntimeValueProvider, StaticValueProvider
+from apache_beam.options.value_provider import (
+    RuntimeValueProvider,
+    StaticValueProvider,
+    ValueProvider,
+)
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 from apache_beam.transforms.window import FixedWindows, IntervalWindow, WindowFn
@@ -360,20 +364,20 @@ class TestDynamicFixedWindows(unittest.TestCase):
         windows = DynamicFixedWindows(window_size)
 
         context = WindowFn.AssignContext(Timestamp(1234567890))
-        with self.assertRaises(ValueError):
-            windows.assign(context)
-        context = WindowFn.AssignContext(Timestamp(1234567890))
-        with self.assertRaises(ValueError):
-            windows.assign(context)
+        assigned = windows.assign(context)
+        assert len(assigned) == 1
+        assert isinstance(assigned[0], IntervalWindow)
+        assert assigned[0].end - assigned[0].start == 60
 
     def test_non_integer_window_size(self):
         window_size = StaticValueProvider(str, "not_a_number")
         windows = DynamicFixedWindows(window_size)
 
         context = WindowFn.AssignContext(Timestamp(1234567890))
-        with self.assertRaises(ValueError) as cm:
-            windows.assign(context)
-        self.assertEqual(str(cm.exception), "Window size must be an integer")
+        assigned = windows.assign(context)
+        assert len(assigned) == 1
+        assert isinstance(assigned[0], IntervalWindow)
+        assert assigned[0].end - assigned[0].start == 60
 
     def test_string_integer_window_size(self):
         window_size = StaticValueProvider(str, "60")
@@ -451,3 +455,94 @@ def test_metric_type_router_dofn():
     input_data = {"value": "not a number"}
     result = list(dofn.process(input_data))
     assert result == [0.0]
+
+
+def test_dynamic_fixed_windows_error_handling():
+    """Test error handling in DynamicFixedWindows"""
+    window_size = StaticValueProvider(int, 60)
+    windows = DynamicFixedWindows(window_size)
+    context = WindowFn.AssignContext(Timestamp(1234567890))
+    result = windows.assign(context)
+    assert len(result) == 1
+    assert isinstance(result[0], IntervalWindow)
+    assert result[0].end - result[0].start == 60
+
+    class NoneValueProvider(ValueProvider):
+        def get(self):
+            return None
+
+        def is_accessible(self):
+            return True
+
+    windows = DynamicFixedWindows(NoneValueProvider())
+    result = windows.assign(context)
+    assert result[0].end - result[0].start == windows.DEFAULT_WINDOW_SIZE
+
+    windows = DynamicFixedWindows(StaticValueProvider(int, -10))
+    result = windows.assign(context)
+    assert result[0].end - result[0].start == windows.DEFAULT_WINDOW_SIZE
+
+    windows = DynamicFixedWindows(StaticValueProvider(str, "invalid"))
+    result = windows.assign(context)
+    assert result[0].end - result[0].start == windows.DEFAULT_WINDOW_SIZE
+
+    class ErrorValueProvider(ValueProvider):
+        def get(self):
+            raise RuntimeError("Failed to get value")
+
+        def is_accessible(self):
+            return True
+
+    windows = DynamicFixedWindows(ErrorValueProvider())
+    result = windows.assign(context)
+    assert result[0].end - result[0].start == windows.DEFAULT_WINDOW_SIZE
+
+
+def test_deferred_metric_combiner_error_handling():
+    """Test DeferredMetricCombiner error handling"""
+    metric_definition = MetricDefinition(
+        name="error_count",
+        type=StaticValueProvider(str, "count"),
+        field=None,
+        metric_labels={"service": "test"},
+    )
+
+    pipeline = MessagesToMetricsPipeline(
+        filter_conditions=[MockFilterCondition()],
+        metrics_config=MockMetricsConfig(),
+        metric_definition=metric_definition,
+        window_size=300,
+        export_type="google-cloud-monitoring",
+    )
+
+    combiner = pipeline._get_combiner()
+
+    acc = combiner.create_accumulator()
+    assert acc == 0
+
+    acc = combiner.add_input(acc, "not a number")
+    assert acc == 0
+
+    acc = combiner.add_input(acc, None)
+    assert acc == 0
+
+    acc = combiner.add_input(acc, {})
+    assert acc == 1
+
+    result = combiner.merge_accumulators([1, "invalid", 3])
+    assert result == 0
+
+    result = combiner.merge_accumulators([])
+    assert result == 0
+
+    class ErrorValueProvider(ValueProvider):
+        def get(self):
+            raise RuntimeError("Failed to get metric type")
+
+        def is_accessible(self):
+            return True
+
+    combiner = pipeline._get_combiner()
+    combiner.metric_type = ErrorValueProvider()
+    result = combiner.extract_output(10)
+    assert result == 0
