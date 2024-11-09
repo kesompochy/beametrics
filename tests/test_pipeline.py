@@ -23,9 +23,7 @@ from beametrics.metrics_exporter import (
 from beametrics.pipeline import (
     DecodeAndParse,
     DynamicFixedWindows,
-    ExtractField,
     MessagesToMetricsPipeline,
-    MetricTypeRouter,
     parse_json,
 )
 
@@ -176,6 +174,69 @@ def test_sum_metric_aggregation(mock_export):
         assert_that(result, equal_to([250]))
 
 
+def test_pipeline_with_dynamic_labels():
+    """Test pipeline with dynamic labels extraction"""
+    with TestPipeline(
+        options=PipelineOptions(
+            [
+                "--metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--dynamic-labels={"region": "region"}',
+                "--metric-field=count",
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+                '--metric-labels={"service": "test"}',
+            ]
+        )
+    ) as p:
+        input_data = [
+            b'{"severity": "ERROR", "region": "us-east1", "count": 1}',
+            b'{"severity": "ERROR", "region": "us-west1", "count": 1}',
+            b'{"severity": "ERROR", "region": "us-east1", "count": 1}',
+        ]
+
+        filter_condition = FilterCondition(
+            field="severity", value="ERROR", operator="equals"
+        )
+
+        metrics_config = GoogleCloudMetricsConfig(
+            metric_name="custom.googleapis.com/test",
+            metric_labels={"service": "test"},
+            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+        )
+
+        metric_definition = MetricDefinition(
+            name="error_count",
+            type=MetricType.COUNT,
+            field=None,
+            metric_labels={"service": "test"},
+            dynamic_labels={"region": "region"},
+        )
+
+        test_exporter = TestMetricsExporter()
+
+        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+            mock_export.return_value = test_exporter  # TestMetricsExporterを使用
+
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[filter_condition],
+                    metrics_config=metrics_config,
+                    metric_definition=metric_definition,
+                    window_size=60,
+                    export_type="google-cloud-monitoring",
+                )
+            )
+
+        expected_metrics = [
+            {"value": 2, "labels": {"service": "test", "region": "us-east1"}},
+            {"value": 1, "labels": {"service": "test", "region": "us-west1"}},
+        ]
+
+        assert_that(result, equal_to(expected_metrics))
+
+
 class MockFilterCondition(FilterCondition):
     def __init__(self):
         super().__init__(field="severity", value="ERROR", operator="equals")
@@ -297,8 +358,8 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
     result = pipeline.expand(MagicMock())
 
 
-def test_deferred_metric_combiner_with_dict_input():
-    """Test DeferredMetricCombiner handles dict inputs correctly"""
+def test_metric_type_evaluation():
+    """Test metric type evaluation with ValueProvider"""
     from apache_beam.options.value_provider import StaticValueProvider
 
     metric_definition = MetricDefinition(
@@ -316,18 +377,81 @@ def test_deferred_metric_combiner_with_dict_input():
         export_type="google-cloud-monitoring",
     )
 
-    combiner = pipeline._get_combiner()
-    acc = combiner.create_accumulator()
+    msg = {"field": "value", "count": 100}
+    result = pipeline._get_metric_type()
+    assert result is True
 
-    dict_input = {"field": "value"}
-    acc = combiner.add_input(acc, dict_input)
-    assert acc == 1
+    metric_definition = MetricDefinition(
+        name="bytes_total",
+        type=StaticValueProvider(str, "sum"),
+        field="bytes",
+        metric_labels={"service": "test"},
+    )
 
-    acc = combiner.add_input(acc, {"another": "value"})
-    assert acc == 2
+    pipeline = MessagesToMetricsPipeline(
+        filter_conditions=[MockFilterCondition()],
+        metrics_config=MockMetricsConfig(),
+        metric_definition=metric_definition,
+        window_size=300,
+        export_type="google-cloud-monitoring",
+    )
 
-    acc = combiner.add_input(acc, 5)
-    assert acc == 7
+    msg = {"bytes": 100}
+    result = pipeline._get_metric_type()
+    assert result is False
+
+
+def test_metric_type_late_evaluation():
+    """Test that metric type is evaluated at runtime"""
+    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+        mock_export.return_value = TestMetricsExporter()
+        RuntimeValueProvider.set_runtime_options(None)
+        options = PipelineOptions(
+            [
+                "--metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--metric-labels={"service": "test"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+            ]
+        )
+
+        runtime_provider = RuntimeValueProvider(
+            option_name="metric_type", value_type=str, default_value="sum"
+        )
+
+        metric_definition = MetricDefinition(
+            name="test_metric",
+            type=runtime_provider,
+            field="value",
+            metric_labels={"service": "test"},
+        )
+
+        pipeline = MessagesToMetricsPipeline(
+            filter_conditions=[MockFilterCondition()],
+            metrics_config=MockMetricsConfig(),
+            metric_definition=metric_definition,
+            window_size=300,
+            export_type="google-cloud-monitoring",
+        )
+
+        RuntimeValueProvider.set_runtime_options({"metric_type": "sum"})
+
+        with TestPipeline(options=options) as p:
+            input_data = [b'{"severity": "ERROR", "value": 100}']
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[MockFilterCondition()],
+                    metrics_config=MockMetricsConfig(),
+                    metric_definition=metric_definition,
+                    window_size=300,
+                    export_type="google-cloud-monitoring",
+                )
+            )
+            assert_that(
+                result, equal_to([{"labels": {"service": "test"}, "value": 100}])
+            )
 
 
 class TestDynamicFixedWindows(unittest.TestCase):
@@ -409,54 +533,6 @@ def test_decode_and_parse_dofn():
     assert result == []
 
 
-def test_extract_field_dofn():
-    """Test ExtractField DoFn"""
-    dofn = ExtractField(field="count")
-
-    valid_input = {"count": 10}
-    result = list(dofn.process(valid_input))
-    assert result == [10.0]
-
-    missing_field = {"other_field": 10}
-    result = list(dofn.process(missing_field))
-    assert result == []
-
-    invalid_type = {"count": "not a number"}
-    result = list(dofn.process(invalid_type))
-    assert result == []
-
-    none_value = {"count": None}
-    result = list(dofn.process(none_value))
-    assert result == []
-
-
-def test_metric_type_router_dofn():
-    """Test MetricTypeRouter DoFn"""
-    dofn = MetricTypeRouter(metric_type=MetricType.COUNT, field="value")
-    input_data = {"field": "test"}
-    result = list(dofn.process(input_data))
-    assert result == [input_data]
-
-    dofn = MetricTypeRouter(
-        metric_type=StaticValueProvider(str, "COUNT"), field="value"
-    )
-    result = list(dofn.process(input_data))
-    assert result == [input_data]
-
-    dofn = MetricTypeRouter(metric_type="SUM", field="value")
-    input_data = {"value": 10}
-    result = list(dofn.process(input_data))
-    assert result == [10.0]
-
-    input_data = {"other_field": 10}
-    result = list(dofn.process(input_data))
-    assert result == [0.0]
-
-    input_data = {"value": "not a number"}
-    result = list(dofn.process(input_data))
-    assert result == [0.0]
-
-
 def test_dynamic_fixed_windows_error_handling():
     """Test error handling in DynamicFixedWindows"""
     window_size = StaticValueProvider(int, 60)
@@ -498,51 +574,66 @@ def test_dynamic_fixed_windows_error_handling():
     assert result[0].end - result[0].start == windows.DEFAULT_WINDOW_SIZE
 
 
-def test_deferred_metric_combiner_error_handling():
-    """Test DeferredMetricCombiner error handling"""
-    metric_definition = MetricDefinition(
-        name="error_count",
-        type=StaticValueProvider(str, "count"),
-        field=None,
-        metric_labels={"service": "test"},
-    )
+def test_pipeline_with_sum_metric():
+    """Test pipeline with SUM metric type"""
+    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+        with TestPipeline(
+            options=PipelineOptions(
+                [
+                    "--metric-name=test-metric",
+                    "--subscription=projects/test-project/subscriptions/test-sub",
+                    '--metric-labels={"service": "test"}',
+                    '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+                ]
+            )
+        ) as p:
+            input_data = [
+                b'{"severity": "ERROR", "region": "us-east1", "bytes": 100}',
+                b'{"severity": "ERROR", "region": "us-west1", "bytes": 150}',
+                b'{"severity": "ERROR", "region": "us-east1", "bytes": 200}',
+            ]
 
-    pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
-        metric_definition=metric_definition,
-        window_size=300,
-        export_type="google-cloud-monitoring",
-    )
+            filter_condition = FilterCondition(
+                field="severity", value="ERROR", operator="equals"
+            )
 
-    combiner = pipeline._get_combiner()
+            metrics_config = GoogleCloudMetricsConfig(
+                metric_name="custom.googleapis.com/test",
+                metric_labels={"service": "test"},
+                connection_config=GoogleCloudConnectionConfig(
+                    project_id="test-project"
+                ),
+            )
 
-    acc = combiner.create_accumulator()
-    assert acc == 0
+            metric_definition = MetricDefinition(
+                name="bytes_total",
+                type=MetricType.SUM,
+                field="bytes",
+                metric_labels={"service": "test"},
+                dynamic_labels={"region": "region"},
+            )
 
-    acc = combiner.add_input(acc, "not a number")
-    assert acc == 0
+            test_exporter = TestMetricsExporter()
+            mock_export.return_value = test_exporter
 
-    acc = combiner.add_input(acc, None)
-    assert acc == 0
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[filter_condition],
+                    metrics_config=metrics_config,
+                    metric_definition=metric_definition,
+                    window_size=60,
+                    export_type="google-cloud-monitoring",
+                )
+            )
 
-    acc = combiner.add_input(acc, {})
-    assert acc == 1
+            expected_metrics = [
+                {
+                    "value": 300,
+                    "labels": {"service": "test", "region": "us-east1"},
+                },
+                {"value": 150, "labels": {"service": "test", "region": "us-west1"}},
+            ]
 
-    result = combiner.merge_accumulators([1, "invalid", 3])
-    assert result == 0
-
-    result = combiner.merge_accumulators([])
-    assert result == 0
-
-    class ErrorValueProvider(ValueProvider):
-        def get(self):
-            raise RuntimeError("Failed to get metric type")
-
-        def is_accessible(self):
-            return True
-
-    combiner = pipeline._get_combiner()
-    combiner.metric_type = ErrorValueProvider()
-    result = combiner.extract_output(10)
-    assert result == 0
+            assert_that(result, equal_to(expected_metrics))

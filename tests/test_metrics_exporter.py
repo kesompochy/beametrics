@@ -132,3 +132,22 @@ def test_export_metrics():
         dofn.setup()
         result = list(dofn.process(1.0))
         assert result == [1.0]
+
+
+def test_google_cloud_metrics_exporter_with_dynamic_labels():
+    """Test GoogleCloudMetricsExporter with dynamic labels"""
+    config = GoogleCloudMetricsConfig(
+        metric_name="custom.googleapis.com/pubsub/error_count",
+        metric_labels={"service": "api"},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+    with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
+        exporter = GoogleCloudMetricsExporter(config)
+        exporter.export(1.0, dynamic_labels={"region": "us-east1"})
+
+        mock_client.return_value.create_time_series.assert_called_once()
+        call_args = mock_client.return_value.create_time_series.call_args[1]
+        request = call_args["request"]
+
+        time_series = request.time_series[0]
+        assert time_series.metric.labels == {"service": "api", "region": "us-east1"}

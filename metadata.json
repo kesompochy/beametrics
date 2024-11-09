@@ -72,6 +72,12 @@
       "helpText": "Type of Dataflow template (flex or classic)",
       "isOptional": true,
       "defaultValue": "flex"
+    },
+    {
+      "name": "dynamic-labels",
+      "label": "Dynamic labels",
+      "helpText": "Dynamic labels (JSON format)",
+      "isOptional": true
     }
   ]
 }

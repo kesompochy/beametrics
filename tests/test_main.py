@@ -248,3 +248,34 @@ def test_run_with_flex_template(mock_pipeline):
         run(options)
     finally:
         RuntimeValueProvider.set_runtime_options(None)
+
+
+@patch("beametrics.main.Pipeline")
+def test_run_with_dynamic_labels(mock_pipeline):
+    """Test pipeline with dynamic labels"""
+    mock_pipeline_instance = MagicMock()
+    mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
+
+    options = BeametricsOptions(
+        [
+            "--runner=DirectRunner",
+            "--project=test-project",
+            "--metric-name=test-metric",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            '--metric-labels={"service": "test-service"}',
+            '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            '--dynamic-labels={"region": "region_field"}',
+            "--export-type=google-cloud-monitoring",
+        ]
+    )
+
+    from apache_beam.options.value_provider import RuntimeValueProvider
+
+    RuntimeValueProvider.set_runtime_options(options)
+    try:
+        run(options)
+    finally:
+        RuntimeValueProvider.set_runtime_options(None)
+
+    mock_pipeline.assert_called_once()
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
