@@ -135,3 +135,25 @@ def test_metric_definition_with_value_provider_type():
             metric_labels={"service": "test"},
         )
     assert "field is required for sum metric type" in str(exc_info.value)
+
+
+def test_metric_definition_with_null_value_provider_dynamic_labels():
+    """Test MetricDefinition with ValueProvider that returns 'null' for dynamic_labels"""
+
+    class NullValueProvider(ValueProvider):
+        def get(self):
+            return "null"
+
+        def is_accessible(self):
+            return True
+
+    definition = MetricDefinition(
+        name="error_count",
+        type=MetricType.COUNT,
+        field=None,
+        metric_labels={"service": "test"},
+        dynamic_labels=NullValueProvider(),
+    )
+
+    result = definition.get_dynamic_labels()
+    assert result == {}

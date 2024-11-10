@@ -41,7 +41,8 @@ class MetricDefinition:
         """Get resolved dynamic labels"""
         if isinstance(self.dynamic_labels, ValueProvider):
             try:
-                return json.loads(self.dynamic_labels.get())
+                # json.load("null") is None
+                return json.loads(self.dynamic_labels.get()) or {}
             except Exception:
                 return {}
         return self.dynamic_labels or {}

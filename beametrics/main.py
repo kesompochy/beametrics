@@ -82,6 +82,7 @@ class BeametricsOptions(PipelineOptions):
             "--dynamic-labels",
             type=str,
             help="Dynamic labels (JSON format)",
+            default="{}",
         )
 
     def validate_options(self):

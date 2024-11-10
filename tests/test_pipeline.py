@@ -637,3 +637,158 @@ def test_pipeline_with_sum_metric():
             ]
 
             assert_that(result, equal_to(expected_metrics))
+
+
+def test_pipeline_with_none_metric_labels():
+    """Test pipeline with None metric_labels"""
+    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+        with TestPipeline(
+            options=PipelineOptions(
+                [
+                    "--metric-name=test-metric",
+                    "--subscription=projects/test-project/subscriptions/test-sub",
+                    '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+                ]
+            )
+        ) as p:
+            input_data = [b'{"severity": "ERROR", "region": "us-east1", "count": 1}']
+
+            filter_condition = FilterCondition(
+                field="severity", value="ERROR", operator="equals"
+            )
+
+            metrics_config = GoogleCloudMetricsConfig(
+                metric_name="custom.googleapis.com/test",
+                metric_labels={},
+                connection_config=GoogleCloudConnectionConfig(
+                    project_id="test-project"
+                ),
+            )
+
+            metric_definition = MetricDefinition(
+                name="error_count",
+                type=MetricType.COUNT,
+                field=None,
+                metric_labels=None,
+            )
+
+            test_exporter = TestMetricsExporter()
+            mock_export.return_value = test_exporter
+
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[filter_condition],
+                    metrics_config=metrics_config,
+                    metric_definition=metric_definition,
+                    window_size=60,
+                    export_type="google-cloud-monitoring",
+                )
+            )
+
+            expected_metrics = [{"value": 1, "labels": {}}]
+
+            assert_that(result, equal_to(expected_metrics))
+
+
+def test_pipeline_with_none_dynamic_labels():
+    """Test pipeline with None dynamic_labels"""
+    with TestPipeline(
+        options=PipelineOptions(
+            [
+                "--metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+            ]
+        )
+    ) as p:
+        input_data = [b'{"severity": "ERROR", "region": "us-east1", "count": 1}']
+
+        filter_condition = FilterCondition(
+            field="severity", value="ERROR", operator="equals"
+        )
+
+        metrics_config = GoogleCloudMetricsConfig(
+            metric_name="custom.googleapis.com/test",
+            metric_labels={"service": "test"},
+            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+        )
+
+        metric_definition = MetricDefinition(
+            name="error_count",
+            type=MetricType.COUNT,
+            field=None,
+            metric_labels={"service": "test"},
+            dynamic_labels=None,
+        )
+
+        test_exporter = TestMetricsExporter()
+
+        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+            mock_export.return_value = test_exporter
+
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[filter_condition],
+                    metrics_config=metrics_config,
+                    metric_definition=metric_definition,
+                    window_size=60,
+                    export_type="google-cloud-monitoring",
+                )
+            )
+
+            expected_metrics = [
+                {"value": 1, "labels": {"service": "test"}},
+            ]
+
+            assert_that(result, equal_to(expected_metrics))
+
+
+def test_pipeline_with_runtime_value_provider_and_none_dynamic_labels():
+    """Test pipeline with RuntimeValueProvider and None dynamic_labels"""
+    RuntimeValueProvider.set_runtime_options({"metric_type": "count"})
+
+    with TestPipeline(
+        options=PipelineOptions(
+            [
+                "--metric-name=test-metric",
+                "--subscription=projects/test-project/subscriptions/test-sub",
+                '--metric-labels={"service": "test"}',
+                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
+            ]
+        )
+    ) as p:
+        input_data = [b'{"severity": "ERROR", "count": 1}']
+
+        metric_definition = MetricDefinition(
+            name="error_count",
+            type=RuntimeValueProvider(
+                option_name="metric_type", value_type=str, default_value="count"
+            ),
+            field=None,
+            metric_labels={"service": "test"},
+            dynamic_labels=None,
+        )
+
+        test_exporter = TestMetricsExporter()
+
+        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
+            mock_export.return_value = test_exporter
+
+            result = (
+                p
+                | beam.Create(input_data)
+                | MessagesToMetricsPipeline(
+                    filter_conditions=[MockFilterCondition()],
+                    metrics_config=MockMetricsConfig(),
+                    metric_definition=metric_definition,
+                    window_size=60,
+                    export_type="google-cloud-monitoring",
+                )
+            )
+
+            expected_metrics = [{"value": 1, "labels": {"service": "test"}}]
+            assert_that(result, equal_to(expected_metrics))
