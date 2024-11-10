@@ -20,7 +20,9 @@
     {
       "name": "metric-labels",
       "label": "Metric labels",
-      "helpText": "JSON string of labels to attach to metrics"
+      "helpText": "JSON string of labels to attach to metrics",
+      "isOptional": true,
+      "defaultValue": "{}"
     },
     {
       "name": "filter-conditions",

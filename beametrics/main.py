@@ -44,7 +44,7 @@ class BeametricsOptions(PipelineOptions):
         parser.add_value_provider_argument(
             "--metric-labels",
             type=str,
-            required=True,
+            default="{}",
             help="Labels to attach to the metric (JSON format)",
         )
         parser.add_value_provider_argument(
