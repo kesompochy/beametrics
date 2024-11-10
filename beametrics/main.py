@@ -204,14 +204,9 @@ def run(pipeline_options: BeametricsOptions) -> None:
         export_type=export_type,
     )
 
-    try:
-        metric_type_enum = MetricType[metric_type.get().upper()]
-    except KeyError:
-        raise ValueError(f"Unsupported metric type: {metric_type.get()}")
-
     metric_definition = MetricDefinition(
         name=metric_name,
-        type=metric_type_enum,
+        type=metric_type,
         field=metric_field,
         metric_labels=metric_labels,
         dynamic_labels=dynamic_labels,
