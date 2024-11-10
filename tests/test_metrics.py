@@ -80,6 +80,29 @@ def test_metric_definition_with_none_dynamic_labels():
     assert definition.dynamic_labels == {}
 
 
+def test_metric_definition_with_none_metric_labels():
+    """Test MetricDefinition handles None metric_labels"""
+    definition = MetricDefinition(
+        name="error_count", type=MetricType.COUNT, field=None, metric_labels=None
+    )
+
+    assert definition.metric_labels == {}
+
+
+def test_metric_definition_with_none_metric_labels_and_dynamic_labels():
+    """Test MetricDefinition handles None metric_labels with dynamic labels"""
+    definition = MetricDefinition(
+        name="error_count",
+        type=MetricType.COUNT,
+        field=None,
+        metric_labels=None,
+        dynamic_labels={"region": "region_field"},
+    )
+
+    assert definition.metric_labels == {}
+    assert definition.dynamic_labels == {"region": "region_field"}
+
+
 def test_metric_definition_with_value_provider_type():
     """Test MetricDefinition with ValueProvider type"""
     from apache_beam.options.value_provider import StaticValueProvider

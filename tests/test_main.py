@@ -195,6 +195,37 @@ def test_run_with_invalid_metric_type(mock_pipeline):
 
 
 @patch("beametrics.main.Pipeline")
+def test_run_with_default_metric_type(mock_pipeline):
+    """Test pipeline with default metric type value"""
+    mock_pipeline_instance = MagicMock()
+    mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
+
+    options = BeametricsOptions(
+        [
+            "--runner=DirectRunner",
+            "--project=test-project",
+            "--metric-name=test-metric",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            '--metric-labels={"service": "test-service"}',
+            '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
+            "--export-type=google-cloud-monitoring",
+            # no metric-type field
+        ]
+    )
+
+    from apache_beam.options.value_provider import RuntimeValueProvider
+
+    RuntimeValueProvider.set_runtime_options({"metric-type": "count"})
+
+    try:
+        metric_type = options.metric_type
+        run(options)
+        mock_pipeline.assert_called_once()
+    finally:
+        RuntimeValueProvider.set_runtime_options(None)
+
+
+@patch("beametrics.main.Pipeline")
 def test_run_without_required_field(mock_pipeline):
     """Test pipeline without required field for SUM metric"""
     with pytest.raises(ValueError) as exc_info:
