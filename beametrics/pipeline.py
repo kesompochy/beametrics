@@ -10,7 +10,7 @@ from apache_beam.utils.timestamp import Duration
 
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
-from beametrics.metrics_exporter import ExportMetrics, GoogleCloudMetricsConfig
+from beametrics.metrics_exporter import ExportMetrics, MetricsConfig
 
 
 class DynamicFixedWindows(NonMergingWindowFn):
@@ -109,7 +109,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
     def __init__(
         self,
         filter_conditions: List[FilterCondition],
-        metrics_config: GoogleCloudMetricsConfig,
+        metrics_config: MetricsConfig,
         metric_definition: MetricDefinition,
         window_size: beam.options.value_provider.ValueProvider,
         export_type: Union[str, ValueProvider],

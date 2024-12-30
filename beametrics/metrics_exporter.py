@@ -140,6 +140,10 @@ class MetricsExporterFactory:
             if not isinstance(config, GoogleCloudMetricsConfig):
                 raise ValueError("Invalid config type for monitoring exporter")
             return GoogleCloudMetricsExporter(config)
+        elif export_type == "local":
+            if not isinstance(config, LocalMetricsConfig):
+                raise ValueError("Invalid config type for local exporter")
+            return LocalMetricsExporter(config)
 
         raise ValueError(f"Unsupported export type: {export_type}")
 
@@ -167,3 +171,49 @@ class ExportMetrics(beam.DoFn):
         except Exception as e:
             logging.error(f"Error exporting metrics: {e}")
             yield element
+
+
+@dataclass
+class LocalMetricsConfig(MetricsConfig):
+    """Configuration for local metrics exporting"""
+
+    metric_name: str
+    metric_labels: Union[ValueProvider, dict[str, str]]
+    connection_config: ConnectionConfig
+
+
+class LocalMetricsExporter(MetricsExporter):
+    """Export metrics to local(stdout for now)"""
+
+    def export(
+        self, value: float, dynamic_labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        now = time.time()
+        final_labels = {}
+
+        if isinstance(self.config.metric_labels, ValueProvider):
+            if isinstance(
+                self.config.metric_labels,
+                beam.options.value_provider.StaticValueProvider,
+            ):
+                final_labels = json.loads(self.config.metric_labels.get())
+        else:
+            final_labels = self.config.metric_labels
+
+        if dynamic_labels:
+            final_labels.update(dynamic_labels)
+
+        metric_name = (
+            self.config.metric_name.get()
+            if isinstance(self.config.metric_name, ValueProvider)
+            else self.config.metric_name
+        )
+
+        output = {
+            "timestamp": now,
+            "metric_name": metric_name,
+            "value": value,
+            "labels": final_labels,
+        }
+
+        print(json.dumps(output))
