@@ -27,6 +27,7 @@ pytest-watch = "^4.2.0"
 black = "^24.10.0"
 isort = "^5.13.2"
 mypy = "^1.13.0"
+types-pyyaml = "^6.0.12.20241230"
 
 [build-system]
 requires = ["poetry-core"]
@@ -39,3 +40,4 @@ beametrics = "beametrics.main:main"
 exclude = [
     "setup\\.py$"
 ]
+ignore_missing_imports = true
