@@ -335,7 +335,7 @@ def test_run_with_parallel_metrics(mock_pipeline):
             '"field": "duration", '
             '"labels": {"service": "api"}, '
             '"filter-conditions": [{"field": "path", "value": "/api/v1", "operator": "contains"}], '
-            '"export_type": "stackdriver"'
+            '"export_type": "local"'
             "}]",
         ]
     )

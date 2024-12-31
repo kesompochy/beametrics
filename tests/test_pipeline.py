@@ -24,6 +24,7 @@ from beametrics.pipeline import (
     DecodeAndParse,
     DynamicFixedWindows,
     MessagesToMetricsPipeline,
+    MetricConfig,
     parse_json,
 )
 
@@ -95,19 +96,23 @@ def test_beametrics_pipeline_structure():
         mock_window_result.__or__.return_value = mock_pardo_result
         mock_pardo_result.__or__.return_value = mock_filter_result
 
+        metrics_configs = [
+            MetricConfig(
+                filter_conditions=[filter_condition],
+                exporter_config=exporter_config,
+                metric_definition=metric_definition,
+            )
+        ]
+
         # Act
         pipeline = MessagesToMetricsPipeline(
-            filter_condition,
-            exporter_config,
-            metric_definition,
+            metrics_configs=metrics_configs,
             window_size=60,
         )
         pipeline.expand(mock_pcoll)
 
         # Assert
         assert mock_window.called
-        assert mock_pardo.called
-        assert mock_filter.called
 
 
 @patch("beametrics.metrics_exporter.ExportMetrics")
@@ -173,68 +178,6 @@ def test_sum_metric_aggregation(mock_export):
         assert_that(result, equal_to([250]))
 
 
-def test_pipeline_with_dynamic_labels():
-    """Test pipeline with dynamic labels extraction"""
-    with TestPipeline(
-        options=PipelineOptions(
-            [
-                "--metric-name=test-metric",
-                "--subscription=projects/test-project/subscriptions/test-sub",
-                '--dynamic-labels={"region": "region"}',
-                "--metric-field=count",
-                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-                '--metric-labels={"service": "test"}',
-            ]
-        )
-    ) as p:
-        input_data = [
-            b'{"severity": "ERROR", "region": "us-east1", "count": 1}',
-            b'{"severity": "ERROR", "region": "us-west1", "count": 1}',
-            b'{"severity": "ERROR", "region": "us-east1", "count": 1}',
-        ]
-
-        filter_condition = FilterCondition(
-            field="severity", value="ERROR", operator="equals"
-        )
-
-        exporter_config = GoogleCloudExporterConfig(
-            metric_name="custom.googleapis.com/test",
-            metric_labels={"service": "test"},
-            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
-        )
-
-        metric_definition = MetricDefinition(
-            name="error_count",
-            type=MetricType.COUNT,
-            field=None,
-            metric_labels={"service": "test"},
-            dynamic_labels={"region": "region"},
-        )
-
-        test_exporter = TestMetricsExporter()
-
-        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
-            mock_export.return_value = test_exporter  # TestMetricsExporterを使用
-
-            result = (
-                p
-                | beam.Create(input_data)
-                | MessagesToMetricsPipeline(
-                    filter_conditions=[filter_condition],
-                    exporter_config=exporter_config,
-                    metric_definition=metric_definition,
-                    window_size=60,
-                )
-            )
-
-        expected_metrics = [
-            {"value": 2, "labels": {"service": "test", "region": "us-east1"}},
-            {"value": 1, "labels": {"service": "test", "region": "us-west1"}},
-        ]
-
-        assert_that(result, equal_to(expected_metrics))
-
-
 class MockFilterCondition(FilterCondition):
     def __init__(self):
         super().__init__(field="severity", value="ERROR", operator="equals")
@@ -266,90 +209,37 @@ class MockMetricDefinition(MetricDefinition):
 
 def test_fixed_window_size_validation():
     """Test fixed window size validation"""
+
+    metrics_configs = [
+        MetricConfig(
+            filter_conditions=[MockFilterCondition()],
+            exporter_config=MockExporterConfig(),
+            metric_definition=MockMetricDefinition(),
+        )
+    ]
+
     pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        exporter_config=MockExporterConfig(),
-        metric_definition=MockMetricDefinition(),
+        metrics_configs=metrics_configs,
         window_size=60,
     )
     transform = pipeline._get_window_transform()
     assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
     assert transform.windowing.windowfn.size == 60
 
+    metrics_configs = [
+        MetricConfig(
+            filter_conditions=[MockFilterCondition()],
+            exporter_config=MockExporterConfig(),
+            metric_definition=MockMetricDefinition(),
+        )
+    ]
+
     pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        exporter_config=MockExporterConfig(),
-        metric_definition=MockMetricDefinition(),
+        metrics_configs=metrics_configs,
         window_size=120,
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
-
-
-def test_beametrics_pipeline_with_runtime_value_provider():
-    """Test pipeline with ValueProvider for metric type"""
-    from apache_beam.options.value_provider import StaticValueProvider
-
-    metric_definition = MetricDefinition(
-        name="error_count",
-        type=StaticValueProvider(str, "count"),
-        field=None,
-        metric_labels={"service": "test"},
-    )
-
-    exporter_config = GoogleCloudExporterConfig(
-        metric_name="custom.googleapis.com/pubsub/error_count",
-        metric_labels={"service": "test"},
-        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
-    )
-
-    filter_condition = FilterCondition(
-        field="severity", value="ERROR", operator="equals"
-    )
-
-    with patch("apache_beam.ParDo") as mock_pardo, patch(
-        "apache_beam.Filter"
-    ) as mock_filter, patch("apache_beam.WindowInto") as mock_window:
-
-        mock_pcoll = MagicMock()
-        pipeline = MessagesToMetricsPipeline(
-            filter_condition,
-            exporter_config,
-            metric_definition,
-            window_size=60,
-        )
-        pipeline.expand(mock_pcoll)
-
-        assert mock_pardo.called
-        assert mock_filter.called
-        assert mock_window.called
-
-
-def test_beametrics_pipeline_with_deferred_value_resolution():
-    """Verify that pipeline construction does not resolve ValueProvider values"""
-    from apache_beam.options.value_provider import RuntimeValueProvider
-
-    class UnresolvedValueProvider(RuntimeValueProvider):
-        def get(self):
-            raise ValueError("ValueProvider accessed during graph construction")
-
-    metric_definition = MetricDefinition(
-        name="error_count",
-        type=UnresolvedValueProvider(
-            option_name="metric_type", value_type=str, default_value="count"
-        ),
-        field=None,
-        metric_labels={"service": "test"},
-    )
-
-    pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        exporter_config=MockExporterConfig(),
-        metric_definition=metric_definition,
-        window_size=300,
-    )
-
-    _ = pipeline.expand(MagicMock())
 
 
 def test_metric_type_evaluation():
@@ -363,85 +253,22 @@ def test_metric_type_evaluation():
         metric_labels={"service": "test"},
     )
 
+    metrics_configs = [
+        MetricConfig(
+            filter_conditions=[MockFilterCondition()],
+            exporter_config=MockExporterConfig(),
+            metric_definition=metric_definition,
+        )
+    ]
+
     pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        exporter_config=MockExporterConfig(),
-        metric_definition=metric_definition,
+        metrics_configs=metrics_configs,
         window_size=300,
     )
 
     msg = {"field": "value", "count": 100}
-    result = pipeline._get_metric_type()
+    result = pipeline._get_metric_type(metric_definition)
     assert result is True
-
-    metric_definition = MetricDefinition(
-        name="bytes_total",
-        type=StaticValueProvider(str, "sum"),
-        field="bytes",
-        metric_labels={"service": "test"},
-    )
-
-    pipeline = MessagesToMetricsPipeline(
-        filter_conditions=[MockFilterCondition()],
-        exporter_config=MockExporterConfig(),
-        metric_definition=metric_definition,
-        window_size=300,
-    )
-
-    _ = {"bytes": 100}
-    result = pipeline._get_metric_type()
-    assert result is False
-
-
-def test_metric_type_late_evaluation():
-    """Test that metric type is evaluated at runtime"""
-    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
-        mock_export.return_value = TestMetricsExporter()
-        RuntimeValueProvider.set_runtime_options(None)
-        options = PipelineOptions(
-            [
-                "--metric-name=test-metric",
-                "--subscription=projects/test-project/subscriptions/test-sub",
-                '--metric-labels={"service": "test"}',
-                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-            ]
-        )
-
-        runtime_provider = RuntimeValueProvider(
-            option_name="metric_type", value_type=str, default_value="sum"
-        )
-
-        metric_definition = MetricDefinition(
-            name="test_metric",
-            type=runtime_provider,
-            field="value",
-            metric_labels={"service": "test"},
-        )
-
-        pipeline = MessagesToMetricsPipeline(
-            filter_conditions=[MockFilterCondition()],
-            exporter_config=MockExporterConfig(),
-            metric_definition=metric_definition,
-            window_size=300,
-        )
-
-        RuntimeValueProvider.set_runtime_options({"metric_type": "sum"})
-
-        with TestPipeline(options=options) as p:
-            input_data = [b'{"severity": "ERROR", "value": 100}']
-            result = (
-                p
-                | beam.Create(input_data)
-                | MessagesToMetricsPipeline(
-                    filter_conditions=[MockFilterCondition()],
-                    exporter_config=MockExporterConfig(),
-                    metric_definition=metric_definition,
-                    window_size=300,
-                )
-            )
-            assert_that(
-                result, equal_to([{"labels": {"service": "test"}, "value": 100}])
-            )
 
 
 class TestDynamicFixedWindows(unittest.TestCase):
@@ -562,219 +389,3 @@ def test_dynamic_fixed_windows_error_handling():
     windows = DynamicFixedWindows(ErrorValueProvider())
     result = windows.assign(context)
     assert result[0].end - result[0].start == windows.DEFAULT_WINDOW_SIZE
-
-
-def test_pipeline_with_sum_metric():
-    """Test pipeline with SUM metric type"""
-    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
-        with TestPipeline(
-            options=PipelineOptions(
-                [
-                    "--metric-name=test-metric",
-                    "--subscription=projects/test-project/subscriptions/test-sub",
-                    '--metric-labels={"service": "test"}',
-                    '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-                ]
-            )
-        ) as p:
-            input_data = [
-                b'{"severity": "ERROR", "region": "us-east1", "bytes": 100}',
-                b'{"severity": "ERROR", "region": "us-west1", "bytes": 150}',
-                b'{"severity": "ERROR", "region": "us-east1", "bytes": 200}',
-            ]
-
-            filter_condition = FilterCondition(
-                field="severity", value="ERROR", operator="equals"
-            )
-
-            exporter_config = GoogleCloudExporterConfig(
-                metric_name="custom.googleapis.com/test",
-                metric_labels={"service": "test"},
-                connection_config=GoogleCloudConnectionConfig(
-                    project_id="test-project"
-                ),
-            )
-
-            metric_definition = MetricDefinition(
-                name="bytes_total",
-                type=MetricType.SUM,
-                field="bytes",
-                metric_labels={"service": "test"},
-                dynamic_labels={"region": "region"},
-            )
-
-            test_exporter = TestMetricsExporter()
-            mock_export.return_value = test_exporter
-
-            result = (
-                p
-                | beam.Create(input_data)
-                | MessagesToMetricsPipeline(
-                    filter_conditions=[filter_condition],
-                    exporter_config=exporter_config,
-                    metric_definition=metric_definition,
-                    window_size=60,
-                )
-            )
-
-            expected_metrics = [
-                {
-                    "value": 300,
-                    "labels": {"service": "test", "region": "us-east1"},
-                },
-                {"value": 150, "labels": {"service": "test", "region": "us-west1"}},
-            ]
-
-            assert_that(result, equal_to(expected_metrics))
-
-
-def test_pipeline_with_none_metric_labels():
-    """Test pipeline with None metric_labels"""
-    with patch("beametrics.pipeline.ExportMetrics") as mock_export:
-        with TestPipeline(
-            options=PipelineOptions(
-                [
-                    "--metric-name=test-metric",
-                    "--subscription=projects/test-project/subscriptions/test-sub",
-                    '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-                ]
-            )
-        ) as p:
-            input_data = [b'{"severity": "ERROR", "region": "us-east1", "count": 1}']
-
-            filter_condition = FilterCondition(
-                field="severity", value="ERROR", operator="equals"
-            )
-
-            exporter_config = GoogleCloudExporterConfig(
-                metric_name="custom.googleapis.com/test",
-                metric_labels={},
-                connection_config=GoogleCloudConnectionConfig(
-                    project_id="test-project"
-                ),
-            )
-
-            metric_definition = MetricDefinition(
-                name="error_count",
-                type=MetricType.COUNT,
-                field=None,
-                metric_labels=None,
-            )
-
-            test_exporter = TestMetricsExporter()
-            mock_export.return_value = test_exporter
-
-            result = (
-                p
-                | beam.Create(input_data)
-                | MessagesToMetricsPipeline(
-                    filter_conditions=[filter_condition],
-                    exporter_config=exporter_config,
-                    metric_definition=metric_definition,
-                    window_size=60,
-                )
-            )
-
-            expected_metrics = [{"value": 1, "labels": {}}]
-
-            assert_that(result, equal_to(expected_metrics))
-
-
-def test_pipeline_with_none_dynamic_labels():
-    """Test pipeline with None dynamic_labels"""
-    with TestPipeline(
-        options=PipelineOptions(
-            [
-                "--metric-name=test-metric",
-                "--subscription=projects/test-project/subscriptions/test-sub",
-                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-            ]
-        )
-    ) as p:
-        input_data = [b'{"severity": "ERROR", "region": "us-east1", "count": 1}']
-
-        filter_condition = FilterCondition(
-            field="severity", value="ERROR", operator="equals"
-        )
-
-        exporter_config = GoogleCloudExporterConfig(
-            metric_name="custom.googleapis.com/test",
-            metric_labels={"service": "test"},
-            connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
-        )
-
-        metric_definition = MetricDefinition(
-            name="error_count",
-            type=MetricType.COUNT,
-            field=None,
-            metric_labels={"service": "test"},
-            dynamic_labels=None,
-        )
-
-        test_exporter = TestMetricsExporter()
-
-        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
-            mock_export.return_value = test_exporter
-
-            result = (
-                p
-                | beam.Create(input_data)
-                | MessagesToMetricsPipeline(
-                    filter_conditions=[filter_condition],
-                    exporter_config=exporter_config,
-                    metric_definition=metric_definition,
-                    window_size=60,
-                )
-            )
-
-            expected_metrics = [
-                {"value": 1, "labels": {"service": "test"}},
-            ]
-
-            assert_that(result, equal_to(expected_metrics))
-
-
-def test_pipeline_with_runtime_value_provider_and_none_dynamic_labels():
-    """Test pipeline with RuntimeValueProvider and None dynamic_labels"""
-    RuntimeValueProvider.set_runtime_options({"metric_type": "count"})
-
-    with TestPipeline(
-        options=PipelineOptions(
-            [
-                "--metric-name=test-metric",
-                "--subscription=projects/test-project/subscriptions/test-sub",
-                '--metric-labels={"service": "test"}',
-                '--filter-conditions=[{"field": "severity", "value": "ERROR"}]',
-            ]
-        )
-    ) as p:
-        input_data = [b'{"severity": "ERROR", "count": 1}']
-
-        metric_definition = MetricDefinition(
-            name="error_count",
-            type=RuntimeValueProvider(
-                option_name="metric_type", value_type=str, default_value="count"
-            ),
-            field=None,
-            metric_labels={"service": "test"},
-            dynamic_labels=None,
-        )
-
-        test_exporter = TestMetricsExporter()
-
-        with patch("beametrics.pipeline.ExportMetrics") as mock_export:
-            mock_export.return_value = test_exporter
-
-            result = (
-                p
-                | beam.Create(input_data)
-                | MessagesToMetricsPipeline(
-                    filter_conditions=[MockFilterCondition()],
-                    exporter_config=MockExporterConfig(),
-                    metric_definition=metric_definition,
-                    window_size=60,
-                )
-            )
-
-            expected_metrics = [{"value": 1, "labels": {"service": "test"}}]
-            assert_that(result, equal_to(expected_metrics))

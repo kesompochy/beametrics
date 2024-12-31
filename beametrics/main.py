@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List
 
 import apache_beam as beam
@@ -9,7 +10,6 @@ from apache_beam.options.pipeline_options import (
     PipelineOptions,
     StandardOptions,
 )
-from apache_beam.options.value_provider import RuntimeValueProvider
 
 from beametrics.filter import FilterCondition
 from beametrics.metrics import MetricDefinition
@@ -19,7 +19,7 @@ from beametrics.metrics_exporter import (
     GoogleCloudExporterConfig,
     LocalExporterConfig,
 )
-from beametrics.pipeline import MessagesToMetricsPipeline
+from beametrics.pipeline import MessagesToMetricsPipeline, MetricConfig
 
 
 class BeametricsOptions(PipelineOptions):
@@ -195,6 +195,47 @@ def create_exporter_config(
     )
 
 
+def create_single_metric_config(
+    options: BeametricsOptions, project_id: str
+) -> MetricConfig:
+    """Create a single metric configuration from command line options."""
+    exporter_config = create_exporter_config(
+        metric_name=options.metric_name,
+        metric_labels=options.metric_labels,
+        project_id=project_id,
+        export_type=options.export_type,
+    )
+
+    metric_definition = MetricDefinition(
+        name=options.metric_name,
+        type=options.metric_type,
+        field=getattr(options, "metric_field", None),
+        metric_labels=options.metric_labels,
+        dynamic_labels=options.dynamic_labels,
+    )
+
+    filter_conditions = (
+        options.filter_conditions.get()
+        if isinstance(
+            options.filter_conditions, beam.options.value_provider.StaticValueProvider
+        )
+        else (
+            options.filter_conditions
+            if not isinstance(
+                options.filter_conditions,
+                beam.options.value_provider.RuntimeValueProvider,
+            )
+            else '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
+        )
+    )
+
+    return MetricConfig(
+        filter_conditions=parse_filter_conditions(filter_conditions),
+        exporter_config=exporter_config,
+        metric_definition=metric_definition,
+    )
+
+
 def run(pipeline_options: BeametricsOptions) -> None:
     """Run the pipeline with the given options."""
     options = pipeline_options.view_as(BeametricsOptions)
@@ -205,48 +246,48 @@ def run(pipeline_options: BeametricsOptions) -> None:
     project_id = google_cloud_options.project
     # Must be str or None as arg for ReadFromPubSub with DataflowRunner, not ValueProvider
     subscription = options.subscription.get()
-
-    metric_name = options.metric_name
-    metric_labels = options.metric_labels
-    filter_conditions = options.filter_conditions
-    metric_type = options.metric_type
-    metric_field = getattr(options, "metric_field", None)
     window_size = options.window_size
-    export_type = options.export_type
-    dynamic_labels = options.dynamic_labels
 
+    metrics_configs = []
     if (
         options.metrics is not None
-        and hasattr(RuntimeValueProvider, "runtime_options")
-        and RuntimeValueProvider.runtime_options is not None
+        and isinstance(options.metrics, beam.options.value_provider.StaticValueProvider)
         and options.metrics.get() is not None
     ):
         try:
-            metrics_config = json.loads(options.metrics.get())[0]
-            metric_name = metrics_config["name"]
-            metric_labels = metrics_config["labels"]
-            filter_conditions = metrics_config["filter-conditions"]
-            metric_type = metrics_config["type"]
-            metric_field = metrics_config.get("field")
-            export_type = metrics_config.get("export_type", "google-cloud-monitoring")
-            dynamic_labels = metrics_config.get("dynamic_labels", {})
+            for metric_config in json.loads(options.metrics.get()):
+
+                exporter_config = create_exporter_config(
+                    metric_name=metric_config["name"],
+                    metric_labels=metric_config["labels"],
+                    project_id=project_id,
+                    export_type=metric_config.get(
+                        "export_type", "google-cloud-monitoring"
+                    ),
+                )
+
+                metric_definition = MetricDefinition(
+                    name=metric_config["name"],
+                    type=metric_config["type"],
+                    field=metric_config.get("field"),
+                    metric_labels=metric_config["labels"],
+                    dynamic_labels=metric_config.get("dynamic_labels", {}),
+                )
+
+                metrics_configs.append(
+                    MetricConfig(
+                        filter_conditions=parse_filter_conditions(
+                            json.dumps(metric_config["filter-conditions"])
+                        ),
+                        exporter_config=exporter_config,
+                        metric_definition=metric_definition,
+                    )
+                )
         except (json.JSONDecodeError, error.RuntimeValueProviderError):
-            pass
+            metrics_configs = [create_single_metric_config(options, project_id)]
 
-    exporter_config = create_exporter_config(
-        metric_name=metric_name,
-        metric_labels=metric_labels,
-        project_id=project_id,
-        export_type=export_type,
-    )
-
-    metric_definition = MetricDefinition(
-        name=metric_name,
-        type=metric_type,
-        field=metric_field,
-        metric_labels=metric_labels,
-        dynamic_labels=dynamic_labels,
-    )
+    else:
+        metrics_configs = [create_single_metric_config(options, project_id)]
 
     with Pipeline(options=pipeline_options) as p:
         (
@@ -254,17 +295,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
             >> MessagesToMetricsPipeline(
-                filter_conditions=parse_filter_conditions(
-                    filter_conditions
-                    if isinstance(filter_conditions, str)
-                    else (
-                        filter_conditions.get()
-                        if hasattr(filter_conditions, "get")
-                        else '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
-                    )
-                ),
-                exporter_config=exporter_config,
-                metric_definition=metric_definition,
+                metrics_configs=metrics_configs,
                 window_size=window_size,
             )
         )
@@ -272,6 +303,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
 
 def main():
     """Main entry point."""
+    logging.basicConfig(level=logging.INFO)
     pipeline_options = BeametricsOptions()
     run(pipeline_options)
 
