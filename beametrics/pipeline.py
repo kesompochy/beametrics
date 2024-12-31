@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Generator, List, Union
+from typing import Any, Dict, List, Union
 
 import apache_beam as beam
 from apache_beam.coders import coders
