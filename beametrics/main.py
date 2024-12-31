@@ -2,16 +2,17 @@ import json
 from typing import List
 
 import apache_beam as beam
-from apache_beam import Pipeline
+from apache_beam import Pipeline, error
 from apache_beam.io.gcp.pubsub import ReadFromPubSub
 from apache_beam.options.pipeline_options import (
     GoogleCloudOptions,
     PipelineOptions,
     StandardOptions,
 )
+from apache_beam.options.value_provider import RuntimeValueProvider
 
 from beametrics.filter import FilterCondition
-from beametrics.metrics import MetricDefinition, MetricType
+from beametrics.metrics import MetricDefinition
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
@@ -30,16 +31,23 @@ class BeametricsOptions(PipelineOptions):
 
         # Required parameters
         parser.add_value_provider_argument(
-            "--metric-name",
-            type=str,
-            required=True,
-            help="Name of the metric to create",
-        )
-        parser.add_value_provider_argument(
             "--subscription",
             type=str,
             required=True,
             help="Pub/Sub subscription to read from",
+        )
+        # Optional parameters
+        parser.add_value_provider_argument(
+            "--dataflow-template-type",
+            type=str,
+            help="Type of Dataflow template (flex or classic)",
+        )
+
+        # Single metric options
+        parser.add_value_provider_argument(
+            "--metric-name",
+            type=str,
+            help="Name of the metric to create",
         )
         parser.add_value_provider_argument(
             "--metric-labels",
@@ -50,11 +58,10 @@ class BeametricsOptions(PipelineOptions):
         parser.add_value_provider_argument(
             "--filter-conditions",
             type=str,
-            required=True,
             help="Filter conditions (JSON format)",
         )
 
-        # Optional parameters
+        # Optional parameters for single metric
         parser.add_value_provider_argument(
             "--metric-type",
             type=str,
@@ -74,15 +81,16 @@ class BeametricsOptions(PipelineOptions):
             help="Type of export destination",
         )
         parser.add_value_provider_argument(
-            "--dataflow-template-type",
-            type=str,
-            help="Type of Dataflow template (flex or classic)",
-        )
-        parser.add_value_provider_argument(
             "--dynamic-labels",
             type=str,
             help="Dynamic labels (JSON format)",
             default="{}",
+        )
+
+        # Multiple metrics options
+        parser.add_value_provider_argument(
+            "--metrics",
+            help="JSON array of metric configurations",
         )
 
     def validate_options(self):
@@ -186,6 +194,9 @@ def run(pipeline_options: BeametricsOptions) -> None:
 
     google_cloud_options = pipeline_options.view_as(GoogleCloudOptions)
     project_id = google_cloud_options.project
+    # Must be str or None as arg for ReadFromPubSub with DataflowRunner, not ValueProvider
+    subscription = options.subscription.get()
+
     metric_name = options.metric_name
     metric_labels = options.metric_labels
     filter_conditions = options.filter_conditions
@@ -195,8 +206,22 @@ def run(pipeline_options: BeametricsOptions) -> None:
     export_type = options.export_type
     dynamic_labels = options.dynamic_labels
 
-    # Must be str or None as arg for ReadFromPubSub with DataflowRunner, not ValueProvider
-    subscription = options.subscription.get()
+    if (
+        options.metrics is not None
+        and hasattr(RuntimeValueProvider, "runtime_options")
+        and RuntimeValueProvider.runtime_options is not None
+    ):
+        try:
+            metrics_config = json.loads(options.metrics.get())[0]
+            metric_name = metrics_config["name"]
+            metric_labels = metrics_config["labels"]
+            filter_conditions = metrics_config["filter-conditions"]
+            metric_type = metrics_config["type"]
+            metric_field = metrics_config.get("field")
+            export_type = metrics_config.get("export_type", "google-cloud-monitoring")
+            dynamic_labels = metrics_config.get("dynamic_labels", {})
+        except (json.JSONDecodeError, error.RuntimeValueProviderError):
+            pass
 
     metrics_config = create_metrics_config(
         metric_name=metric_name,
@@ -219,7 +244,10 @@ def run(pipeline_options: BeametricsOptions) -> None:
             | "ReadFromPubSub" >> ReadFromPubSub(subscription=subscription)
             | "ProcessMessages"
             >> MessagesToMetricsPipeline(
-                filter_conditions=parse_filter_conditions(filter_conditions.get()),
+                filter_conditions=parse_filter_conditions(
+                    filter_conditions.get()
+                    or '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
+                ),
                 metrics_config=metrics_config,
                 metric_definition=metric_definition,
                 window_size=window_size,
