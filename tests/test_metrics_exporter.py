@@ -6,16 +6,16 @@ import pytest
 from beametrics.metrics_exporter import (
     ExportMetrics,
     GoogleCloudConnectionConfig,
-    GoogleCloudMetricsConfig,
+    GoogleCloudExporterConfig,
     GoogleCloudMetricsExporter,
-    LocalMetricsConfig,
+    LocalExporterConfig,
     LocalMetricsExporter,
     MetricsExporterFactory,
 )
 
 
 def test_create_exporter_monitoring():
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/test",
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -23,26 +23,14 @@ def test_create_exporter_monitoring():
 
     with patch("google.cloud.monitoring_v3.MetricServiceClient") as mock_client:
         mock_client.return_value = Mock()
-        exporter = MetricsExporterFactory.create_exporter(
-            "google-cloud-monitoring", config
-        )
+        exporter = MetricsExporterFactory.create_exporter(config)
         assert exporter.__class__.__name__ == "GoogleCloudMetricsExporter"
-
-
-def test_create_exporter_invalid_type():
-    config = GoogleCloudMetricsConfig(
-        metric_name="custom.googleapis.com/test",
-        metric_labels={},
-        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
-    )
-    with pytest.raises(ValueError, match="Unsupported export type: invalid"):
-        MetricsExporterFactory.create_exporter("invalid", config)
 
 
 def test_create_exporter_invalid_config():
     config = "invalid_config"
-    with pytest.raises(ValueError, match="Invalid config type for monitoring exporter"):
-        MetricsExporterFactory.create_exporter("google-cloud-monitoring", config)
+    with pytest.raises(ValueError, match="Invalid config type for metrics exporter"):
+        MetricsExporterFactory.create_exporter(config)
 
 
 def test_google_cloud_connection_config():
@@ -57,7 +45,7 @@ def test_metrics_config_with_google_cloud_connection_config():
     """
     Test MetricsConfig with GoogleCloudConnectionConfig
     """
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -72,7 +60,7 @@ def test_google_cloud_metrics_exporter():
     """
     Test GoogleCloudMetricsExporter
     """
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -88,7 +76,7 @@ def test_google_cloud_metrics_exporter_parameters():
     """
     Test GoogleCloudMetricsExporter passes correct parameters
     """
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -115,7 +103,7 @@ def test_google_cloud_metrics_exporter_parameters():
 
 def test_export_metrics():
     """Test ExportMetrics DoFn"""
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/test",
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -124,7 +112,7 @@ def test_export_metrics():
     input_element = {"labels": {}, "value": 1.0}
 
     with patch("google.cloud.monitoring_v3.MetricServiceClient"):
-        dofn = ExportMetrics(config, "google-cloud-monitoring")
+        dofn = ExportMetrics(config)
         dofn.setup()
         result = list(dofn.process(input_element))
         assert result == [input_element]
@@ -133,7 +121,7 @@ def test_export_metrics():
         mock_client.return_value.create_time_series.side_effect = Exception(
             "Export failed"
         )
-        dofn = ExportMetrics(config, "google-cloud-monitoring")
+        dofn = ExportMetrics(config)
         dofn.setup()
         result = list(dofn.process(input_element))
         assert result == [input_element]
@@ -141,7 +129,7 @@ def test_export_metrics():
 
 def test_google_cloud_metrics_exporter_with_dynamic_labels():
     """Test GoogleCloudMetricsExporter with dynamic labels"""
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -160,19 +148,19 @@ def test_google_cloud_metrics_exporter_with_dynamic_labels():
 
 def test_create_exporter_local():
     """Test creating local exporter"""
-    config = LocalMetricsConfig(
+    config = LocalExporterConfig(
         metric_name="test_metric",
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
     )
 
-    exporter = MetricsExporterFactory.create_exporter("local", config)
+    exporter = MetricsExporterFactory.create_exporter(config)
     assert exporter.__class__.__name__ == "LocalMetricsExporter"
 
 
 def test_local_metrics_exporter():
     """Test LocalMetricsExporter exports metrics correctly"""
-    config = LocalMetricsConfig(
+    config = LocalExporterConfig(
         metric_name="test_metric",
         metric_labels={"service": "test"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),

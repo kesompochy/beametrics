@@ -15,7 +15,8 @@
     {
       "name": "metric-name",
       "label": "Metric name",
-      "helpText": "Name of the metric to export"
+      "helpText": "Name of the metric to export",
+      "isOptional": true
     },
     {
       "name": "metric-labels",
@@ -27,7 +28,8 @@
     {
       "name": "filter-conditions",
       "label": "Filter conditions",
-      "helpText": "JSON array of filter conditions"
+      "helpText": "JSON array of filter conditions",
+      "isOptional": true
     },
     {
       "name": "region",
@@ -79,6 +81,12 @@
       "name": "dynamic-labels",
       "label": "Dynamic labels",
       "helpText": "Dynamic labels (JSON format)",
+      "isOptional": true
+    },
+    {
+      "name": "metrics",
+      "label": "Metrics",
+      "helpText": "Metrics to export (JSON format)",
       "isOptional": true
     }
   ]

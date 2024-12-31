@@ -5,13 +5,13 @@ import pytest
 from beametrics.filter import FilterCondition
 from beametrics.main import (
     BeametricsOptions,
-    create_metrics_config,
+    create_exporter_config,
     parse_filter_conditions,
     run,
 )
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
-    GoogleCloudMetricsConfig,
+    GoogleCloudExporterConfig,
 )
 from beametrics.pipeline import MessagesToMetricsPipeline
 
@@ -131,16 +131,16 @@ def test_run_with_unsupported_export_type(mock_pipeline):
     assert "Unsupported export type: unsupported" in str(exc_info.value)
 
 
-def test_create_metrics_config_for_monitoring():
+def test_create_exporter_config_for_monitoring():
     """Test metrics config creation for Cloud Monitoring"""
-    config = create_metrics_config(
+    config = create_exporter_config(
         metric_name="test-metric",
         metric_labels={"service": "test-service"},
         project_id="test-project",
         export_type="google-cloud-monitoring",
     )
 
-    assert isinstance(config, GoogleCloudMetricsConfig)
+    assert isinstance(config, GoogleCloudExporterConfig)
     assert config.metric_name == "custom.googleapis.com/test-metric"
     assert config.metric_labels == {"service": "test-service"}
     assert isinstance(config.connection_config, GoogleCloudConnectionConfig)
@@ -218,7 +218,6 @@ def test_run_with_default_metric_type(mock_pipeline):
     RuntimeValueProvider.set_runtime_options({"metric-type": "count"})
 
     try:
-        metric_type = options.metric_type
         run(options)
         mock_pipeline.assert_called_once()
     finally:
@@ -297,6 +296,47 @@ def test_run_with_dynamic_labels(mock_pipeline):
             '--filter-conditions=[{"field": "severity", "value": "ERROR", "operator": "equals"}]',
             '--dynamic-labels={"region": "region_field"}',
             "--export-type=google-cloud-monitoring",
+        ]
+    )
+
+    from apache_beam.options.value_provider import RuntimeValueProvider
+
+    RuntimeValueProvider.set_runtime_options(options)
+    try:
+        run(options)
+    finally:
+        RuntimeValueProvider.set_runtime_options(None)
+
+    mock_pipeline.assert_called_once()
+    mock_pipeline_instance | MagicMock(spec=MessagesToMetricsPipeline)
+
+
+@patch("beametrics.main.Pipeline")
+def test_run_with_parallel_metrics(mock_pipeline):
+    """Test pipeline with parallel metrics configuration"""
+    mock_pipeline_instance = MagicMock()
+    mock_pipeline.return_value.__enter__.return_value = mock_pipeline_instance
+
+    options = BeametricsOptions(
+        [
+            "--runner=DirectRunner",
+            "--project=test-project",
+            "--subscription=projects/test-project/subscriptions/test-subscription",
+            "--window-size=60",
+            "--metrics=[{"
+            '"name": "error_count", '
+            '"type": "count", '
+            '"labels": {"service": "api"}, '
+            '"filter-conditions": [{"field": "severity", "value": "ERROR", "operator": "equals"}], '
+            '"export_type": "google-cloud-monitoring"'
+            "}, {"
+            '"name": "response_time", '
+            '"type": "sum", '
+            '"field": "duration", '
+            '"labels": {"service": "api"}, '
+            '"filter-conditions": [{"field": "path", "value": "/api/v1", "operator": "contains"}], '
+            '"export_type": "local"'
+            "}]",
         ]
     )
 

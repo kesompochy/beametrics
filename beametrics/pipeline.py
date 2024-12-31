@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Any, Dict, Generator, List, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 import apache_beam as beam
 from apache_beam.coders import coders
@@ -10,7 +11,11 @@ from apache_beam.utils.timestamp import Duration
 
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
-from beametrics.metrics_exporter import ExportMetrics, MetricsConfig
+from beametrics.metrics_exporter import (
+    ExporterConfig,
+    MetricsExporter,
+    MetricsExporterFactory,
+)
 
 
 class DynamicFixedWindows(NonMergingWindowFn):
@@ -103,22 +108,28 @@ class DecodeAndParse(beam.DoFn):
             return []
 
 
+@dataclass
+class MetricConfig:
+    """Configuration for a single metric pipeline"""
+
+    filter_conditions: List[FilterCondition]
+    exporter_config: ExporterConfig
+    metric_definition: MetricDefinition
+
+
 class MessagesToMetricsPipeline(beam.PTransform):
     """Transform PubSub messages to Cloud Monitoring metrics"""
 
     def __init__(
         self,
-        filter_conditions: List[FilterCondition],
-        metrics_config: MetricsConfig,
-        metric_definition: MetricDefinition,
+        metrics_configs: List[MetricConfig],
         window_size: beam.options.value_provider.ValueProvider,
-        export_type: Union[str, ValueProvider],
     ):
         """Initialize the pipeline transform
 
         Args:
             filter_conditions: List of conditions for filtering messages
-            metrics_config: Configuration for metrics export
+            exporter_config: Configuration for metrics export
             metric_definition: Definition of the metric to generate
             window_size: Size of the fixed window in seconds (minimum 60)
 
@@ -127,72 +138,96 @@ class MessagesToMetricsPipeline(beam.PTransform):
         """
 
         super().__init__()
-        self.filter = MessageFilter(filter_conditions)
-        self.metrics_config = metrics_config
-        self.metric_definition = metric_definition
+        self.metrics_configs = metrics_configs
         self.window_size = (
             window_size
             if isinstance(window_size, ValueProvider)
             else StaticValueProvider(int, window_size)
         )
-        self.export_type = export_type
 
     def _get_window_transform(self):
         """Get the window transform with configured size"""
         return beam.WindowInto(DynamicFixedWindows(self.window_size))
 
-    def _get_metric_type(self) -> bool:
+    def _get_metric_type(self, metric_definition: MetricDefinition) -> bool:
         """Get whether the metric type is COUNT"""
         try:
             if isinstance(
-                self.metric_definition.type, beam.options.value_provider.ValueProvider
+                metric_definition.type, beam.options.value_provider.ValueProvider
             ):
-                return self.metric_definition.type.get().upper() == "COUNT"
-            return self.metric_definition.type == MetricType.COUNT
+                return metric_definition.type.get().upper() == "COUNT"
+            return metric_definition.type == MetricType.COUNT
         except Exception as e:
             logging.error(f"Error getting metric type: {e}")
             return True
 
     def expand(self, pcoll):
-        filtered = (
+        return (
             pcoll
             | "DecodeAndParse" >> beam.ParDo(DecodeAndParse())
-            | "FilterMessages" >> beam.Filter(self.filter.matches)
-        )
-
-        keyed = filtered | "AddLabels" >> beam.Map(
-            lambda msg: (
-                tuple(
-                    sorted(
-                        {
-                            **(
-                                json.loads(self.metric_definition.metric_labels.get())
-                                if isinstance(
-                                    self.metric_definition.metric_labels, ValueProvider
-                                )
-                                else self.metric_definition.metric_labels
-                            ),
-                            **{
-                                label_name: str(msg.get(field_name, ""))
-                                for label_name, field_name in self.metric_definition.get_dynamic_labels().items()
-                            },
-                        }.items()
+            | "FilterAndLabel"
+            >> beam.FlatMap(
+                lambda msg: [
+                    (
+                        (i, tuple(sorted(self._get_labels(msg, config).items()))),
+                        self._get_value(msg, config),
                     )
-                ),
-                (
-                    1
-                    if self._get_metric_type()
-                    else float(msg.get(self.metric_definition.field, 0))
-                ),
+                    for i, config in enumerate(self.metrics_configs)
+                    if MessageFilter(config.filter_conditions).matches(msg)
+                ]
             )
-        )
-
-        return (
-            keyed
-            | "Window" >> self._get_window_transform()
+            | "Window" >> beam.WindowInto(DynamicFixedWindows(self.window_size))
             | "CombinePerKey" >> beam.CombinePerKey(sum)
             | "FormatOutput"
-            >> beam.Map(lambda kv: {"labels": dict(kv[0]), "value": kv[1]})
-            | "ExportMetrics"
-            >> beam.ParDo(ExportMetrics(self.metrics_config, self.export_type))
+            >> beam.Map(
+                lambda kv: (kv[0][0], {"labels": dict(kv[0][1]), "value": kv[1]})
+            )
+            | "Export" >> beam.ParDo(MultiMetricsExporter(self.metrics_configs))
         )
+
+    def _get_labels(self, msg: dict, config: MetricConfig) -> dict:
+        if isinstance(config.metric_definition.metric_labels, ValueProvider):
+            metric_labels_json = config.metric_definition.metric_labels.get()
+            metric_labels = json.loads(metric_labels_json) if metric_labels_json else {}
+        else:
+            metric_labels = config.metric_definition.metric_labels or {}
+        dynamic_labels = {
+            label_name: str(msg.get(field_name, ""))
+            for label_name, field_name in config.metric_definition.get_dynamic_labels().items()
+        }
+        return {**metric_labels, **dynamic_labels}
+
+    def _get_value(self, msg: dict, config: MetricConfig) -> float:
+        if isinstance(config.metric_definition.type, ValueProvider):
+            metric_type = config.metric_definition.type.get().lower()
+        else:
+            metric_type = config.metric_definition.type
+
+        if metric_type == "count":
+            return 1
+        return float(msg.get(config.metric_definition.field, 0))
+
+
+class MultiMetricsExporter(beam.DoFn):
+    """Export metrics to multiple destinations based on configuration."""
+
+    def __init__(self, metrics_configs: List[MetricConfig]):
+        self.metrics_configs = metrics_configs
+        self.exporters: Dict[int, MetricsExporter] = {}
+
+    def setup(self):
+        """Initialize exporters for each configuration."""
+        for i, config in enumerate(self.metrics_configs):
+            self.exporters[i] = MetricsExporterFactory.create_exporter(
+                config.exporter_config
+            )
+
+    def process(self, element):
+        """Export metrics using the appropriate exporter."""
+        config_index, metrics = element
+        try:
+            if config_index in self.exporters:
+                self.exporters[config_index].export(metrics["value"], metrics["labels"])
+            yield element
+        except Exception as e:
+            logging.error(f"Error exporting metrics: {e}")
