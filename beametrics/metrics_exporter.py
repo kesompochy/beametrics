@@ -35,6 +35,7 @@ class MetricsConfig(Protocol):
     metric_name: str
     metric_labels: Union[ValueProvider, dict[str, str]]
     connection_config: ConnectionConfig
+    export_type: str
 
 
 @dataclass
@@ -44,6 +45,7 @@ class GoogleCloudMetricsConfig(MetricsConfig):
     metric_name: str
     metric_labels: Union[ValueProvider, dict[str, str]]
     connection_config: GoogleCloudConnectionConfig
+    export_type: str = "google-cloud-monitoring"
 
 
 class MetricsExporter(ABC):
@@ -113,7 +115,7 @@ class GoogleCloudMetricsExporter(MetricsExporter):
 
         try:
             self.client.create_time_series(request=request)
-        except google_exceptions.InvalidArgument as e:
+        except google_exceptions.InvalidArgument:
             pass
         except Exception:
             raise
@@ -123,7 +125,7 @@ class MetricsExporterFactory:
     """Factory class for creating MetricsExporter instances"""
 
     @staticmethod
-    def create_exporter(export_type: str, config: MetricsConfig) -> MetricsExporter:
+    def create_exporter(config: MetricsConfig) -> MetricsExporter:
         """Create a MetricsExporter instance based on export type.
 
         Args:
@@ -136,6 +138,12 @@ class MetricsExporterFactory:
         Raises:
             ValueError: If export_type is not supported or config type is invalid
         """
+        if not isinstance(config, GoogleCloudMetricsConfig) and not isinstance(
+            config, LocalMetricsConfig
+        ):
+            raise ValueError("Invalid config type for metrics exporter")
+
+        export_type = config.export_type
         if export_type == "google-cloud-monitoring":
             if not isinstance(config, GoogleCloudMetricsConfig):
                 raise ValueError("Invalid config type for monitoring exporter")
@@ -149,20 +157,12 @@ class MetricsExporterFactory:
 
 
 class ExportMetrics(beam.DoFn):
-    def __init__(self, metrics_config: GoogleCloudMetricsConfig, export_type: str):
+    def __init__(self, metrics_config: GoogleCloudMetricsConfig):
         self.metrics_config = metrics_config
-        self.export_type = export_type
         self.exporter = None
 
     def setup(self):
-        export_type = (
-            self.export_type.get()
-            if isinstance(self.export_type, ValueProvider)
-            else self.export_type
-        )
-        self.exporter = MetricsExporterFactory.create_exporter(
-            export_type, self.metrics_config
-        )
+        self.exporter = MetricsExporterFactory.create_exporter(self.metrics_config)
 
     def process(self, element):
         try:
@@ -180,6 +180,7 @@ class LocalMetricsConfig(MetricsConfig):
     metric_name: str
     metric_labels: Union[ValueProvider, dict[str, str]]
     connection_config: ConnectionConfig
+    export_type: str = "local"
 
 
 class LocalMetricsExporter(MetricsExporter):

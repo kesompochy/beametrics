@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import apache_beam as beam
 from apache_beam.coders import coders
@@ -112,7 +112,6 @@ class MessagesToMetricsPipeline(beam.PTransform):
         metrics_config: MetricsConfig,
         metric_definition: MetricDefinition,
         window_size: beam.options.value_provider.ValueProvider,
-        export_type: Union[str, ValueProvider],
     ):
         """Initialize the pipeline transform
 
@@ -135,7 +134,6 @@ class MessagesToMetricsPipeline(beam.PTransform):
             if isinstance(window_size, ValueProvider)
             else StaticValueProvider(int, window_size)
         )
-        self.export_type = export_type
 
     def _get_window_transform(self):
         """Get the window transform with configured size"""
@@ -193,6 +191,5 @@ class MessagesToMetricsPipeline(beam.PTransform):
             | "CombinePerKey" >> beam.CombinePerKey(sum)
             | "FormatOutput"
             >> beam.Map(lambda kv: {"labels": dict(kv[0]), "value": kv[1]})
-            | "ExportMetrics"
-            >> beam.ParDo(ExportMetrics(self.metrics_config, self.export_type))
+            | "ExportMetrics" >> beam.ParDo(ExportMetrics(self.metrics_config))
         )

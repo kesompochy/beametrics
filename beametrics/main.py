@@ -219,6 +219,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
         options.metrics is not None
         and hasattr(RuntimeValueProvider, "runtime_options")
         and RuntimeValueProvider.runtime_options is not None
+        and options.metrics.get() is not None
     ):
         try:
             metrics_config = json.loads(options.metrics.get())[0]
@@ -254,13 +255,17 @@ def run(pipeline_options: BeametricsOptions) -> None:
             | "ProcessMessages"
             >> MessagesToMetricsPipeline(
                 filter_conditions=parse_filter_conditions(
-                    filter_conditions.get()
-                    or '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
+                    filter_conditions
+                    if isinstance(filter_conditions, str)
+                    else (
+                        filter_conditions.get()
+                        if hasattr(filter_conditions, "get")
+                        else '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
+                    )
                 ),
                 metrics_config=metrics_config,
                 metric_definition=metric_definition,
                 window_size=window_size,
-                export_type=export_type,
             )
         )
 

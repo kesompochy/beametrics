@@ -101,7 +101,6 @@ def test_beametrics_pipeline_structure():
             metrics_config,
             metric_definition,
             window_size=60,
-            export_type="google-cloud-monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -225,7 +224,6 @@ def test_pipeline_with_dynamic_labels():
                     metrics_config=metrics_config,
                     metric_definition=metric_definition,
                     window_size=60,
-                    export_type="google-cloud-monitoring",
                 )
             )
 
@@ -273,7 +271,6 @@ def test_fixed_window_size_validation():
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=60,
-        export_type="google-cloud-monitoring",
     )
     transform = pipeline._get_window_transform()
     assert isinstance(transform.windowing.windowfn, DynamicFixedWindows)
@@ -284,7 +281,6 @@ def test_fixed_window_size_validation():
         metrics_config=MockMetricsConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=120,
-        export_type="google-cloud-monitoring",
     )
     transform = pipeline._get_window_transform()
     assert transform.windowing.windowfn.size == 120
@@ -321,7 +317,6 @@ def test_beametrics_pipeline_with_runtime_value_provider():
             metrics_config,
             metric_definition,
             window_size=60,
-            export_type="google-cloud-monitoring",
         )
         pipeline.expand(mock_pcoll)
 
@@ -352,7 +347,6 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
-        export_type="google-cloud-monitoring",
     )
 
     result = pipeline.expand(MagicMock())
@@ -374,7 +368,6 @@ def test_metric_type_evaluation():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
-        export_type="google-cloud-monitoring",
     )
 
     msg = {"field": "value", "count": 100}
@@ -393,7 +386,6 @@ def test_metric_type_evaluation():
         metrics_config=MockMetricsConfig(),
         metric_definition=metric_definition,
         window_size=300,
-        export_type="google-cloud-monitoring",
     )
 
     msg = {"bytes": 100}
@@ -431,7 +423,6 @@ def test_metric_type_late_evaluation():
             metrics_config=MockMetricsConfig(),
             metric_definition=metric_definition,
             window_size=300,
-            export_type="google-cloud-monitoring",
         )
 
         RuntimeValueProvider.set_runtime_options({"metric_type": "sum"})
@@ -446,7 +437,6 @@ def test_metric_type_late_evaluation():
                     metrics_config=MockMetricsConfig(),
                     metric_definition=metric_definition,
                     window_size=300,
-                    export_type="google-cloud-monitoring",
                 )
             )
             assert_that(
@@ -624,7 +614,6 @@ def test_pipeline_with_sum_metric():
                     metrics_config=metrics_config,
                     metric_definition=metric_definition,
                     window_size=60,
-                    export_type="google-cloud-monitoring",
                 )
             )
 
@@ -683,7 +672,6 @@ def test_pipeline_with_none_metric_labels():
                     metrics_config=metrics_config,
                     metric_definition=metric_definition,
                     window_size=60,
-                    export_type="google-cloud-monitoring",
                 )
             )
 
@@ -736,7 +724,6 @@ def test_pipeline_with_none_dynamic_labels():
                     metrics_config=metrics_config,
                     metric_definition=metric_definition,
                     window_size=60,
-                    export_type="google-cloud-monitoring",
                 )
             )
 
@@ -786,7 +773,6 @@ def test_pipeline_with_runtime_value_provider_and_none_dynamic_labels():
                     metrics_config=MockMetricsConfig(),
                     metric_definition=metric_definition,
                     window_size=60,
-                    export_type="google-cloud-monitoring",
                 )
             )
 
