@@ -18,6 +18,8 @@ python = "^3.12"
 apache-beam = {extras = ["gcp"], version = "^2.60.0"}
 google-cloud-monitoring = "^2.22.2"
 protobuf = ">=4.21.6"
+pyyaml = "^6.0.2"
+google-cloud-storage = "^2.19.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

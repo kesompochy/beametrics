@@ -11,6 +11,7 @@ from apache_beam.options.pipeline_options import (
     StandardOptions,
 )
 
+from beametrics.config import load_yaml_config
 from beametrics.filter import FilterCondition
 from beametrics.metrics import MetricDefinition
 from beametrics.metrics_exporter import (
@@ -95,6 +96,11 @@ class BeametricsOptions(PipelineOptions):
             help="JSON array of metric configurations",
         )
 
+        parser.add_value_provider_argument(
+            "--config",
+            help="Path to YAML config file in GCS (gs://bucket/path/to/config.yaml)",
+        )
+
     def validate_options(self):
         standard_options = self.view_as(StandardOptions)
         if standard_options.runner not in ["DirectRunner", "DataflowRunner"]:
@@ -150,6 +156,37 @@ def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
         )
         for condition in conditions
     ]
+
+
+def create_metrics_configs(config_dict: dict, project_id: str) -> List[MetricConfig]:
+    """Convert config dictionary to list of MetricConfig objects."""
+    metrics_configs = []
+    for metric_config in config_dict.get("metrics", []):
+        exporter_config = create_exporter_config(
+            metric_name=metric_config["name"],
+            metric_labels=metric_config["labels"],
+            project_id=project_id,
+            export_type=metric_config.get("export_type", "google-cloud-monitoring"),
+        )
+
+        metric_definition = MetricDefinition(
+            name=metric_config["name"],
+            type=metric_config["type"],
+            field=metric_config.get("field"),
+            metric_labels=metric_config["labels"],
+            dynamic_labels=metric_config.get("dynamic_labels", {}),
+        )
+
+        metrics_configs.append(
+            MetricConfig(
+                filter_conditions=parse_filter_conditions(
+                    json.dumps(metric_config["filter-conditions"])
+                ),
+                exporter_config=exporter_config,
+                metric_definition=metric_definition,
+            )
+        )
+    return metrics_configs
 
 
 def create_exporter_config(
@@ -250,42 +287,23 @@ def run(pipeline_options: BeametricsOptions) -> None:
 
     metrics_configs = []
     if (
+        options.config is not None
+        and isinstance(options.config, beam.options.value_provider.StaticValueProvider)
+        and options.config.get() is not None
+    ):
+
+        config = load_yaml_config(options.config.get())
+        metrics_configs = create_metrics_configs(config, project_id)
+    elif (
         options.metrics is not None
         and isinstance(options.metrics, beam.options.value_provider.StaticValueProvider)
         and options.metrics.get() is not None
     ):
         try:
-            for metric_config in json.loads(options.metrics.get()):
-
-                exporter_config = create_exporter_config(
-                    metric_name=metric_config["name"],
-                    metric_labels=metric_config["labels"],
-                    project_id=project_id,
-                    export_type=metric_config.get(
-                        "export_type", "google-cloud-monitoring"
-                    ),
-                )
-
-                metric_definition = MetricDefinition(
-                    name=metric_config["name"],
-                    type=metric_config["type"],
-                    field=metric_config.get("field"),
-                    metric_labels=metric_config["labels"],
-                    dynamic_labels=metric_config.get("dynamic_labels", {}),
-                )
-
-                metrics_configs.append(
-                    MetricConfig(
-                        filter_conditions=parse_filter_conditions(
-                            json.dumps(metric_config["filter-conditions"])
-                        ),
-                        exporter_config=exporter_config,
-                        metric_definition=metric_definition,
-                    )
-                )
+            config = {"metrics": json.loads(options.metrics.get())}
+            metrics_configs = create_metrics_configs(config, project_id)
         except (json.JSONDecodeError, error.RuntimeValueProviderError):
             metrics_configs = [create_single_metric_config(options, project_id)]
-
     else:
         metrics_configs = [create_single_metric_config(options, project_id)]
 
