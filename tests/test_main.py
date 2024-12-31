@@ -5,13 +5,13 @@ import pytest
 from beametrics.filter import FilterCondition
 from beametrics.main import (
     BeametricsOptions,
-    create_metrics_config,
+    create_exporter_config,
     parse_filter_conditions,
     run,
 )
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
-    GoogleCloudMetricsConfig,
+    GoogleCloudExporterConfig,
 )
 from beametrics.pipeline import MessagesToMetricsPipeline
 
@@ -131,16 +131,16 @@ def test_run_with_unsupported_export_type(mock_pipeline):
     assert "Unsupported export type: unsupported" in str(exc_info.value)
 
 
-def test_create_metrics_config_for_monitoring():
+def test_create_exporter_config_for_monitoring():
     """Test metrics config creation for Cloud Monitoring"""
-    config = create_metrics_config(
+    config = create_exporter_config(
         metric_name="test-metric",
         metric_labels={"service": "test-service"},
         project_id="test-project",
         export_type="google-cloud-monitoring",
     )
 
-    assert isinstance(config, GoogleCloudMetricsConfig)
+    assert isinstance(config, GoogleCloudExporterConfig)
     assert config.metric_name == "custom.googleapis.com/test-metric"
     assert config.metric_labels == {"service": "test-service"}
     assert isinstance(config.connection_config, GoogleCloudConnectionConfig)

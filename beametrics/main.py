@@ -14,10 +14,10 @@ from apache_beam.options.value_provider import RuntimeValueProvider
 from beametrics.filter import FilterCondition
 from beametrics.metrics import MetricDefinition
 from beametrics.metrics_exporter import (
+    ExporterConfig,
     GoogleCloudConnectionConfig,
-    GoogleCloudMetricsConfig,
-    LocalMetricsConfig,
-    MetricsConfig,
+    GoogleCloudExporterConfig,
+    LocalExporterConfig,
 )
 from beametrics.pipeline import MessagesToMetricsPipeline
 
@@ -152,12 +152,12 @@ def parse_filter_conditions(conditions_json: str) -> List[FilterCondition]:
     ]
 
 
-def create_metrics_config(
+def create_exporter_config(
     metric_name: str,
     metric_labels: dict,
     project_id: str,
     export_type: str,
-) -> MetricsConfig:
+) -> ExporterConfig:
     """Create metrics configuration based on export type.
 
     Args:
@@ -182,13 +182,13 @@ def create_metrics_config(
         raise ValueError(f"Unsupported export type: {export_type}")
 
     if export_type == "local":
-        return LocalMetricsConfig(
+        return LocalExporterConfig(
             metric_name=metric_name,
             metric_labels=metric_labels,
             connection_config=GoogleCloudConnectionConfig(project_id=project_id),
         )
 
-    return GoogleCloudMetricsConfig(
+    return GoogleCloudExporterConfig(
         metric_name=f"custom.googleapis.com/{metric_name}",
         metric_labels=metric_labels,
         connection_config=GoogleCloudConnectionConfig(project_id=project_id),
@@ -233,7 +233,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
         except (json.JSONDecodeError, error.RuntimeValueProviderError):
             pass
 
-    metrics_config = create_metrics_config(
+    exporter_config = create_exporter_config(
         metric_name=metric_name,
         metric_labels=metric_labels,
         project_id=project_id,
@@ -263,7 +263,7 @@ def run(pipeline_options: BeametricsOptions) -> None:
                         else '[{"field": "severity", "value": "ERROR", "operator": "equals"}]'
                     )
                 ),
-                metrics_config=metrics_config,
+                exporter_config=exporter_config,
                 metric_definition=metric_definition,
                 window_size=window_size,
             )

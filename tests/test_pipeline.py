@@ -11,14 +11,14 @@ from apache_beam.options.value_provider import (
 )
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
-from apache_beam.transforms.window import FixedWindows, IntervalWindow, WindowFn
+from apache_beam.transforms.window import IntervalWindow, WindowFn
 from apache_beam.utils.timestamp import Timestamp
 
 from beametrics.filter import FilterCondition
 from beametrics.metrics import MetricDefinition, MetricType
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
-    GoogleCloudMetricsConfig,
+    GoogleCloudExporterConfig,
 )
 from beametrics.pipeline import (
     DecodeAndParse,
@@ -67,7 +67,7 @@ def test_beametrics_pipeline_structure():
         field="severity", value="ERROR", operator="equals"
     )
 
-    metrics_config = GoogleCloudMetricsConfig(
+    exporter_config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "test"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -98,7 +98,7 @@ def test_beametrics_pipeline_structure():
         # Act
         pipeline = MessagesToMetricsPipeline(
             filter_condition,
-            metrics_config,
+            exporter_config,
             metric_definition,
             window_size=60,
         )
@@ -197,7 +197,7 @@ def test_pipeline_with_dynamic_labels():
             field="severity", value="ERROR", operator="equals"
         )
 
-        metrics_config = GoogleCloudMetricsConfig(
+        exporter_config = GoogleCloudExporterConfig(
             metric_name="custom.googleapis.com/test",
             metric_labels={"service": "test"},
             connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -221,7 +221,7 @@ def test_pipeline_with_dynamic_labels():
                 | beam.Create(input_data)
                 | MessagesToMetricsPipeline(
                     filter_conditions=[filter_condition],
-                    metrics_config=metrics_config,
+                    exporter_config=exporter_config,
                     metric_definition=metric_definition,
                     window_size=60,
                 )
@@ -240,7 +240,7 @@ class MockFilterCondition(FilterCondition):
         super().__init__(field="severity", value="ERROR", operator="equals")
 
 
-class MockMetricsConfig(GoogleCloudMetricsConfig):
+class MockExporterConfig(GoogleCloudExporterConfig):
     def __init__(self):
         super().__init__(
             metric_name="test-metric",
@@ -268,7 +268,7 @@ def test_fixed_window_size_validation():
     """Test fixed window size validation"""
     pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
+        exporter_config=MockExporterConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=60,
     )
@@ -278,7 +278,7 @@ def test_fixed_window_size_validation():
 
     pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
+        exporter_config=MockExporterConfig(),
         metric_definition=MockMetricDefinition(),
         window_size=120,
     )
@@ -297,7 +297,7 @@ def test_beametrics_pipeline_with_runtime_value_provider():
         metric_labels={"service": "test"},
     )
 
-    metrics_config = GoogleCloudMetricsConfig(
+    exporter_config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "test"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -314,7 +314,7 @@ def test_beametrics_pipeline_with_runtime_value_provider():
         mock_pcoll = MagicMock()
         pipeline = MessagesToMetricsPipeline(
             filter_condition,
-            metrics_config,
+            exporter_config,
             metric_definition,
             window_size=60,
         )
@@ -344,12 +344,12 @@ def test_beametrics_pipeline_with_deferred_value_resolution():
 
     pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
+        exporter_config=MockExporterConfig(),
         metric_definition=metric_definition,
         window_size=300,
     )
 
-    result = pipeline.expand(MagicMock())
+    _ = pipeline.expand(MagicMock())
 
 
 def test_metric_type_evaluation():
@@ -365,7 +365,7 @@ def test_metric_type_evaluation():
 
     pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
+        exporter_config=MockExporterConfig(),
         metric_definition=metric_definition,
         window_size=300,
     )
@@ -383,12 +383,12 @@ def test_metric_type_evaluation():
 
     pipeline = MessagesToMetricsPipeline(
         filter_conditions=[MockFilterCondition()],
-        metrics_config=MockMetricsConfig(),
+        exporter_config=MockExporterConfig(),
         metric_definition=metric_definition,
         window_size=300,
     )
 
-    msg = {"bytes": 100}
+    _ = {"bytes": 100}
     result = pipeline._get_metric_type()
     assert result is False
 
@@ -420,7 +420,7 @@ def test_metric_type_late_evaluation():
 
         pipeline = MessagesToMetricsPipeline(
             filter_conditions=[MockFilterCondition()],
-            metrics_config=MockMetricsConfig(),
+            exporter_config=MockExporterConfig(),
             metric_definition=metric_definition,
             window_size=300,
         )
@@ -434,7 +434,7 @@ def test_metric_type_late_evaluation():
                 | beam.Create(input_data)
                 | MessagesToMetricsPipeline(
                     filter_conditions=[MockFilterCondition()],
-                    metrics_config=MockMetricsConfig(),
+                    exporter_config=MockExporterConfig(),
                     metric_definition=metric_definition,
                     window_size=300,
                 )
@@ -587,7 +587,7 @@ def test_pipeline_with_sum_metric():
                 field="severity", value="ERROR", operator="equals"
             )
 
-            metrics_config = GoogleCloudMetricsConfig(
+            exporter_config = GoogleCloudExporterConfig(
                 metric_name="custom.googleapis.com/test",
                 metric_labels={"service": "test"},
                 connection_config=GoogleCloudConnectionConfig(
@@ -611,7 +611,7 @@ def test_pipeline_with_sum_metric():
                 | beam.Create(input_data)
                 | MessagesToMetricsPipeline(
                     filter_conditions=[filter_condition],
-                    metrics_config=metrics_config,
+                    exporter_config=exporter_config,
                     metric_definition=metric_definition,
                     window_size=60,
                 )
@@ -646,7 +646,7 @@ def test_pipeline_with_none_metric_labels():
                 field="severity", value="ERROR", operator="equals"
             )
 
-            metrics_config = GoogleCloudMetricsConfig(
+            exporter_config = GoogleCloudExporterConfig(
                 metric_name="custom.googleapis.com/test",
                 metric_labels={},
                 connection_config=GoogleCloudConnectionConfig(
@@ -669,7 +669,7 @@ def test_pipeline_with_none_metric_labels():
                 | beam.Create(input_data)
                 | MessagesToMetricsPipeline(
                     filter_conditions=[filter_condition],
-                    metrics_config=metrics_config,
+                    exporter_config=exporter_config,
                     metric_definition=metric_definition,
                     window_size=60,
                 )
@@ -697,7 +697,7 @@ def test_pipeline_with_none_dynamic_labels():
             field="severity", value="ERROR", operator="equals"
         )
 
-        metrics_config = GoogleCloudMetricsConfig(
+        exporter_config = GoogleCloudExporterConfig(
             metric_name="custom.googleapis.com/test",
             metric_labels={"service": "test"},
             connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -721,7 +721,7 @@ def test_pipeline_with_none_dynamic_labels():
                 | beam.Create(input_data)
                 | MessagesToMetricsPipeline(
                     filter_conditions=[filter_condition],
-                    metrics_config=metrics_config,
+                    exporter_config=exporter_config,
                     metric_definition=metric_definition,
                     window_size=60,
                 )
@@ -770,7 +770,7 @@ def test_pipeline_with_runtime_value_provider_and_none_dynamic_labels():
                 | beam.Create(input_data)
                 | MessagesToMetricsPipeline(
                     filter_conditions=[MockFilterCondition()],
-                    metrics_config=MockMetricsConfig(),
+                    exporter_config=MockExporterConfig(),
                     metric_definition=metric_definition,
                     window_size=60,
                 )

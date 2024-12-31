@@ -29,7 +29,7 @@ class GoogleCloudConnectionConfig(ConnectionConfig):
 
 
 @dataclass
-class MetricsConfig(Protocol):
+class ExporterConfig(Protocol):
     """Configuration for metrics exporting"""
 
     metric_name: str
@@ -39,7 +39,7 @@ class MetricsConfig(Protocol):
 
 
 @dataclass
-class GoogleCloudMetricsConfig(MetricsConfig):
+class GoogleCloudExporterConfig(ExporterConfig):
     """Configuration for Google Cloud metrics exporting"""
 
     metric_name: str
@@ -51,7 +51,7 @@ class GoogleCloudMetricsConfig(MetricsConfig):
 class MetricsExporter(ABC):
     """Base class for exporting metrics"""
 
-    def __init__(self, config: MetricsConfig):
+    def __init__(self, config: ExporterConfig):
         self.config = config
 
     @abstractmethod
@@ -65,8 +65,8 @@ class MetricsExporter(ABC):
 class GoogleCloudMetricsExporter(MetricsExporter):
     """Export metrics to Google Cloud Monitoring"""
 
-    def __init__(self, config: GoogleCloudMetricsConfig):
-        self.config: GoogleCloudMetricsConfig = config
+    def __init__(self, config: GoogleCloudExporterConfig):
+        self.config: GoogleCloudExporterConfig = config
         self.client = monitoring_v3.MetricServiceClient()
 
     def export(
@@ -125,7 +125,7 @@ class MetricsExporterFactory:
     """Factory class for creating MetricsExporter instances"""
 
     @staticmethod
-    def create_exporter(config: MetricsConfig) -> MetricsExporter:
+    def create_exporter(config: ExporterConfig) -> MetricsExporter:
         """Create a MetricsExporter instance based on export type.
 
         Args:
@@ -138,18 +138,18 @@ class MetricsExporterFactory:
         Raises:
             ValueError: If export_type is not supported or config type is invalid
         """
-        if not isinstance(config, GoogleCloudMetricsConfig) and not isinstance(
-            config, LocalMetricsConfig
+        if not isinstance(config, GoogleCloudExporterConfig) and not isinstance(
+            config, LocalExporterConfig
         ):
             raise ValueError("Invalid config type for metrics exporter")
 
         export_type = config.export_type
         if export_type == "google-cloud-monitoring":
-            if not isinstance(config, GoogleCloudMetricsConfig):
+            if not isinstance(config, GoogleCloudExporterConfig):
                 raise ValueError("Invalid config type for monitoring exporter")
             return GoogleCloudMetricsExporter(config)
         elif export_type == "local":
-            if not isinstance(config, LocalMetricsConfig):
+            if not isinstance(config, LocalExporterConfig):
                 raise ValueError("Invalid config type for local exporter")
             return LocalMetricsExporter(config)
 
@@ -157,12 +157,12 @@ class MetricsExporterFactory:
 
 
 class ExportMetrics(beam.DoFn):
-    def __init__(self, metrics_config: GoogleCloudMetricsConfig):
-        self.metrics_config = metrics_config
+    def __init__(self, exporter_config: GoogleCloudExporterConfig):
+        self.exporter_config = exporter_config
         self.exporter = None
 
     def setup(self):
-        self.exporter = MetricsExporterFactory.create_exporter(self.metrics_config)
+        self.exporter = MetricsExporterFactory.create_exporter(self.exporter_config)
 
     def process(self, element):
         try:
@@ -174,7 +174,7 @@ class ExportMetrics(beam.DoFn):
 
 
 @dataclass
-class LocalMetricsConfig(MetricsConfig):
+class LocalExporterConfig(ExporterConfig):
     """Configuration for local metrics exporting"""
 
     metric_name: str

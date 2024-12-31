@@ -6,16 +6,16 @@ import pytest
 from beametrics.metrics_exporter import (
     ExportMetrics,
     GoogleCloudConnectionConfig,
-    GoogleCloudMetricsConfig,
+    GoogleCloudExporterConfig,
     GoogleCloudMetricsExporter,
-    LocalMetricsConfig,
+    LocalExporterConfig,
     LocalMetricsExporter,
     MetricsExporterFactory,
 )
 
 
 def test_create_exporter_monitoring():
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/test",
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -45,7 +45,7 @@ def test_metrics_config_with_google_cloud_connection_config():
     """
     Test MetricsConfig with GoogleCloudConnectionConfig
     """
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -60,7 +60,7 @@ def test_google_cloud_metrics_exporter():
     """
     Test GoogleCloudMetricsExporter
     """
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -76,7 +76,7 @@ def test_google_cloud_metrics_exporter_parameters():
     """
     Test GoogleCloudMetricsExporter passes correct parameters
     """
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -103,7 +103,7 @@ def test_google_cloud_metrics_exporter_parameters():
 
 def test_export_metrics():
     """Test ExportMetrics DoFn"""
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/test",
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -129,7 +129,7 @@ def test_export_metrics():
 
 def test_google_cloud_metrics_exporter_with_dynamic_labels():
     """Test GoogleCloudMetricsExporter with dynamic labels"""
-    config = GoogleCloudMetricsConfig(
+    config = GoogleCloudExporterConfig(
         metric_name="custom.googleapis.com/pubsub/error_count",
         metric_labels={"service": "api"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -148,7 +148,7 @@ def test_google_cloud_metrics_exporter_with_dynamic_labels():
 
 def test_create_exporter_local():
     """Test creating local exporter"""
-    config = LocalMetricsConfig(
+    config = LocalExporterConfig(
         metric_name="test_metric",
         metric_labels={},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
@@ -160,7 +160,7 @@ def test_create_exporter_local():
 
 def test_local_metrics_exporter():
     """Test LocalMetricsExporter exports metrics correctly"""
-    config = LocalMetricsConfig(
+    config = LocalExporterConfig(
         metric_name="test_metric",
         metric_labels={"service": "test"},
         connection_config=GoogleCloudConnectionConfig(project_id="test-project"),

@@ -10,7 +10,7 @@ from apache_beam.utils.timestamp import Duration
 
 from beametrics.filter import FilterCondition, MessageFilter
 from beametrics.metrics import MetricDefinition, MetricType
-from beametrics.metrics_exporter import ExportMetrics, MetricsConfig
+from beametrics.metrics_exporter import ExporterConfig, ExportMetrics
 
 
 class DynamicFixedWindows(NonMergingWindowFn):
@@ -109,7 +109,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
     def __init__(
         self,
         filter_conditions: List[FilterCondition],
-        metrics_config: MetricsConfig,
+        exporter_config: ExporterConfig,
         metric_definition: MetricDefinition,
         window_size: beam.options.value_provider.ValueProvider,
     ):
@@ -117,7 +117,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
 
         Args:
             filter_conditions: List of conditions for filtering messages
-            metrics_config: Configuration for metrics export
+            exporter_config: Configuration for metrics export
             metric_definition: Definition of the metric to generate
             window_size: Size of the fixed window in seconds (minimum 60)
 
@@ -127,7 +127,7 @@ class MessagesToMetricsPipeline(beam.PTransform):
 
         super().__init__()
         self.filter = MessageFilter(filter_conditions)
-        self.metrics_config = metrics_config
+        self.exporter_config = exporter_config
         self.metric_definition = metric_definition
         self.window_size = (
             window_size
@@ -191,5 +191,5 @@ class MessagesToMetricsPipeline(beam.PTransform):
             | "CombinePerKey" >> beam.CombinePerKey(sum)
             | "FormatOutput"
             >> beam.Map(lambda kv: {"labels": dict(kv[0]), "value": kv[1]})
-            | "ExportMetrics" >> beam.ParDo(ExportMetrics(self.metrics_config))
+            | "ExportMetrics" >> beam.ParDo(ExportMetrics(self.exporter_config))
         )
