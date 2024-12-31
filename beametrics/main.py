@@ -16,6 +16,8 @@ from beametrics.metrics import MetricDefinition
 from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
+    LocalMetricsConfig,
+    MetricsConfig,
 )
 from beametrics.pipeline import MessagesToMetricsPipeline
 
@@ -105,7 +107,7 @@ class BeametricsOptions(PipelineOptions):
             else:
                 export_type = "google-cloud-monitoring"
 
-        if export_type != "google-cloud-monitoring":
+        if export_type != "google-cloud-monitoring" and export_type != "local":
             raise ValueError(f"Unsupported export type: {export_type}")
 
         metric_type = self.metric_type
@@ -155,7 +157,7 @@ def create_metrics_config(
     metric_labels: dict,
     project_id: str,
     export_type: str,
-) -> GoogleCloudMetricsConfig:
+) -> MetricsConfig:
     """Create metrics configuration based on export type.
 
     Args:
@@ -176,8 +178,15 @@ def create_metrics_config(
         else:
             export_type = "google-cloud-monitoring"
 
-    if export_type != "google-cloud-monitoring":
+    if export_type != "google-cloud-monitoring" and export_type != "local":
         raise ValueError(f"Unsupported export type: {export_type}")
+
+    if export_type == "local":
+        return LocalMetricsConfig(
+            metric_name=metric_name,
+            metric_labels=metric_labels,
+            connection_config=GoogleCloudConnectionConfig(project_id=project_id),
+        )
 
     return GoogleCloudMetricsConfig(
         metric_name=f"custom.googleapis.com/{metric_name}",

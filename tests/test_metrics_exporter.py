@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock, patch
 
 import pytest
@@ -7,6 +8,8 @@ from beametrics.metrics_exporter import (
     GoogleCloudConnectionConfig,
     GoogleCloudMetricsConfig,
     GoogleCloudMetricsExporter,
+    LocalMetricsConfig,
+    LocalMetricsExporter,
     MetricsExporterFactory,
 )
 
@@ -153,3 +156,35 @@ def test_google_cloud_metrics_exporter_with_dynamic_labels():
 
         time_series = request.time_series[0]
         assert time_series.metric.labels == {"service": "api", "region": "us-east1"}
+
+
+def test_create_exporter_local():
+    """Test creating local exporter"""
+    config = LocalMetricsConfig(
+        metric_name="test_metric",
+        metric_labels={},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+
+    exporter = MetricsExporterFactory.create_exporter("local", config)
+    assert exporter.__class__.__name__ == "LocalMetricsExporter"
+
+
+def test_local_metrics_exporter():
+    """Test LocalMetricsExporter exports metrics correctly"""
+    config = LocalMetricsConfig(
+        metric_name="test_metric",
+        metric_labels={"service": "test"},
+        connection_config=GoogleCloudConnectionConfig(project_id="test-project"),
+    )
+
+    with patch("builtins.print") as mock_print:
+        exporter = LocalMetricsExporter(config)
+        exporter.export(1.0, dynamic_labels={"region": "test-region"})
+
+        mock_print.assert_called_once()
+        output = json.loads(mock_print.call_args[0][0])
+        assert output["metric_name"] == "test_metric"
+        assert output["value"] == 1.0
+        assert output["labels"] == {"service": "test", "region": "test-region"}
+        assert "timestamp" in output
